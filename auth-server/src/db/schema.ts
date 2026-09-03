@@ -75,5 +75,31 @@ export const refreshTokens = pgTable(
   ],
 );
 
+export const otpChallenges = pgTable(
+  'otp_challenges',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    email: varchar('email', { length: 255 }).notNull(),
+    purpose: varchar('purpose', { length: 30 }).notNull().default('login'),
+    codeHash: varchar('code_hash', { length: 64 }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    maxAttempts: integer('max_attempts').notNull().default(5),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    supersededAt: timestamp('superseded_at', { withTimezone: true }),
+    deliveryFailedAt: timestamp('delivery_failed_at', { withTimezone: true }),
+    resendAvailableAt: timestamp('resend_available_at', { withTimezone: true }).notNull(),
+    ipAddress: varchar('ip_address', { length: 100 }),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('otp_challenges_email_created_idx').on(table.email, table.createdAt),
+    index('otp_challenges_user_active_idx').on(table.userId, table.purpose, table.createdAt),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Role = typeof roles.$inferSelect;

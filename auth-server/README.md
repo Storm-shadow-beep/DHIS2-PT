@@ -27,6 +27,8 @@ backend/
     │   └── error.middleware.ts
     ├── services/
     │   ├── auth.service.ts
+    │   ├── email.service.ts
+    │   ├── otp.service.ts
     │   └── token.service.ts
     ├── types/
     │   ├── auth.types.ts     # Role, User, JwtPayload
@@ -47,6 +49,8 @@ Public registration creates a `Team Member` account. Privileged role assignment 
 | Method | Path | Access |
 |--------|------|--------|
 | POST | /api/auth/login | public |
+| POST | /api/auth/verify-otp | public; challenge required |
+| POST | /api/auth/resend-otp | public; challenge required |
 | POST | /api/auth/refresh | public (httpOnly cookie) |
 | POST | /api/auth/logout | public with refresh cookie |
 | POST | /api/auth/forgot-password | public |
@@ -62,10 +66,34 @@ Public registration creates a `Team Member` account. Privileged role assignment 
 - PostgreSQL stores only refresh-token hashes/JTIs and lifecycle metadata for rotation, revocation, and reuse detection.
 - Raw JWTs are never stored in the database.
 
+## Email OTP login
+
+Every password login creates a six-digit email challenge. Access and refresh JWTs
+are issued only after the challenge is verified. OTP codes are generated with a
+cryptographically secure source and stored as keyed hashes; codes are never
+logged or returned by the API.
+
+Configure a verified Resend sender with `OTP_EMAIL_PROVIDER=resend`,
+`RESEND_API_KEY`, and `RESEND_FROM_EMAIL`. For local testing, use
+`OTP_EMAIL_PROVIDER=smtp` with a local SMTP sink such as Mailpit. Mailpit can
+be started with `docker run --name dhis2-pt-mailpit -p 1025:1025 -p 8025:8025
+axllent/mailpit`; open `http://localhost:8025` to inspect messages. A challenge
+expires after 10 minutes, allows five
+verification attempts, and can be resent once per minute. Each email is limited
+to five sends in a 15-minute window. Resend delivery failures block login.
+
+For a development-only test without Docker or external email, set
+`OTP_EMAIL_PROVIDER=file`. OTP messages are written to the ignored
+`auth-server/.local-mailbox` directory. This provider is rejected when
+`NODE_ENV=production`.
+
+Expired, consumed, superseded, or failed challenges may be removed by a
+scheduled retention job; the service does not need to retain their code values.
+
 ## Setup
 ```bash
 cp .env.example .env
-# edit JWT_SECRET etc.
+# edit JWT_SECRET, Resend, and OTP settings
 npm install
 npm run dev   # nodemon + ts-node
 npm run build # tsc -> dist/

@@ -6,6 +6,14 @@ export interface UserSession {
   roleDisplayName?: string;
 }
 
+export interface OtpChallenge {
+  requiresOtp: true;
+  challengeId: string;
+  expiresAt: string;
+  resendAvailableAt: string;
+  message?: string;
+}
+
 interface AuthResponse {
   user: UserSession;
   accessToken?: string;
@@ -53,15 +61,43 @@ const parseResponse = async <T>(response: Response): Promise<T> => {
   return data;
 };
 
-export const loginApi = async (email: string, password: string, rememberMe: boolean): Promise<UserSession> => {
+export const loginApi = async (
+  email: string,
+  password: string,
+  rememberMe: boolean,
+): Promise<OtpChallenge> => {
   const response = await authFetch('/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, rememberMe }),
   }, false);
+  const data = await parseResponse<OtpChallenge>(response);
+  accessToken = null;
+  return data;
+};
+
+export const verifyOtpApi = async (
+  challengeId: string,
+  code: string,
+  rememberMe: boolean,
+): Promise<UserSession> => {
+  const response = await authFetch('/api/auth/verify-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ challengeId, code, rememberMe }),
+  }, false);
   const data = await parseResponse<AuthResponse>(response);
   accessToken = data.accessToken ?? null;
   return data.user;
+};
+
+export const resendOtpApi = async (challengeId: string): Promise<OtpChallenge> => {
+  const response = await authFetch('/api/auth/resend-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ challengeId }),
+  }, false);
+  return parseResponse<OtpChallenge>(response);
 };
 
 export const registerApi = async (input: {

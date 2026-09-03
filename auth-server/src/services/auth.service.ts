@@ -93,10 +93,12 @@ async function findUserWithRole(email: string) {
   return result;
 }
 
-export async function login(
-  input: LoginInput,
-  metadata: { userAgent?: string; ipAddress?: string },
-): Promise<{ user: SafeUser; accessToken: string; refreshToken: string }> {
+export interface LoginIdentity {
+  user: SafeUser;
+  role: RoleName;
+}
+
+export async function verifyLoginCredentials(input: LoginInput): Promise<LoginIdentity> {
   const email = normalizeEmail(input.email);
   const user = await findUserWithRole(email);
   const genericError = httpError('Invalid email or password', 401);
@@ -105,27 +107,33 @@ export async function login(
   const passwordValid = await bcrypt.compare(input.password, user.passwordHash);
   if (!passwordValid) throw genericError;
 
+  const role = user.role as RoleName;
+  return { user: toSafeUser({ id: user.id, fullName: user.fullName, email: user.email, role }), role };
+}
+
+export async function issueTokensForUser(
+  userId: string,
+  rememberMe: boolean,
+  metadata: { userAgent?: string; ipAddress?: string },
+): Promise<{ user: SafeUser; accessToken: string; refreshToken: string }> {
+  const user = await getUserById(userId);
+  if (!user) throw httpError('Not authenticated', 401);
+
   await db.update(users).set({ lastLoginAt: new Date(), updatedAt: new Date() }).where(eq(users.id, user.id));
 
-  const role = user.role as RoleName;
   const tokenPayload = {
     sub: user.id,
     email: user.email,
-    role,
+    role: user.role,
     fullName: user.fullName,
   };
   const accessToken = signAccessToken(tokenPayload);
   const refresh = await issueRefreshToken(tokenPayload, {
-    rememberMe: Boolean(input.rememberMe),
+    rememberMe,
     userAgent: metadata.userAgent,
     ipAddress: metadata.ipAddress,
   });
-
-  return {
-    user: toSafeUser({ id: user.id, fullName: user.fullName, email: user.email, role }),
-    accessToken,
-    refreshToken: refresh.token,
-  };
+  return { user, accessToken, refreshToken: refresh.token };
 }
 
 export async function getUserById(id: string): Promise<SafeUser | null> {

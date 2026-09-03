@@ -16,6 +16,12 @@ export const errorHandler = (
     message: err.message || 'Internal Server Error',
   };
 
+  if ('code' in err && typeof err.code === 'string') payload.code = err.code;
+  if ('retryAfterSeconds' in err && typeof err.retryAfterSeconds === 'number') {
+    payload.retryAfterSeconds = err.retryAfterSeconds;
+    res.setHeader('Retry-After', String(err.retryAfterSeconds));
+  }
+
   if (process.env.NODE_ENV !== 'production') {
     payload.stack = err.stack;
   }

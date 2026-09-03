@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginApi, getCurrentUserApi } from '.././services/authApi';
+import { loginApi, getCurrentUserApi, resendOtpApi, verifyOtpApi } from '.././services/authApi';
+import type { OtpChallenge } from '.././services/authApi';
 import './LoginPage.css';
 
 interface LoginCredentials {
@@ -22,6 +23,9 @@ export const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [otpChallenge, setOtpChallenge] = useState<OtpChallenge | null>(null);
+  const [otpCode, setOtpCode] = useState('');
+  const [resendInSeconds, setResendInSeconds] = useState(0);
 
   useEffect(() => {
     getCurrentUserApi().then((user) => {
@@ -30,6 +34,16 @@ export const LoginPage: React.FC = () => {
       }
     });
   }, [navigate]);
+
+  useEffect(() => {
+    if (!otpChallenge) return undefined;
+    const updateCountdown = () => {
+      setResendInSeconds(Math.max(0, Math.ceil((new Date(otpChallenge.resendAvailableAt).getTime() - Date.now()) / 1000)));
+    };
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, [otpChallenge]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -75,12 +89,11 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      await loginApi(formData.email, formData.password, formData.rememberMe);
-      setSuccessMessage('Login successful!');
-
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1200);
+      const challenge = await loginApi(formData.email, formData.password, formData.rememberMe);
+      setOtpChallenge(challenge);
+      setOtpCode('');
+      setSuccessMessage('A verification code was sent to your email.');
+      setLoading(false);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setErrorMessage(err.message);
@@ -89,6 +102,49 @@ export const LoginPage: React.FC = () => {
       }
       setLoading(false);
     }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    if (!/^\d{6}$/.test(otpCode)) {
+      setErrorMessage('Enter the six-digit verification code.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await verifyOtpApi(otpChallenge!.challengeId, otpCode, formData.rememberMe);
+      setSuccessMessage('Login successful!');
+      setTimeout(() => navigate('/dashboard'), 500);
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Verification failed.');
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!otpChallenge || resendInSeconds > 0 || loading) return;
+    setErrorMessage(null);
+    setLoading(true);
+    try {
+      const challenge = await resendOtpApi(otpChallenge.challengeId);
+      setOtpChallenge(challenge);
+      setOtpCode('');
+      setSuccessMessage('A new verification code was sent.');
+    } catch (err: unknown) {
+      setErrorMessage(err instanceof Error ? err.message : 'Unable to resend the verification code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const restartLogin = () => {
+    setOtpChallenge(null);
+    setOtpCode('');
+    setErrorMessage(null);
+    setSuccessMessage(null);
   };
 
   return (
@@ -132,6 +188,40 @@ export const LoginPage: React.FC = () => {
           {errorMessage && <div className="error-box">{errorMessage}</div>}
           {successMessage && <div className="success-box">{successMessage}</div>}
 
+          {otpChallenge ? (
+            <form onSubmit={handleVerifyOtp} className="login-form" noValidate>
+              <p className="login-redirect">
+                Enter the six-digit code sent to <strong>{formData.email}</strong>.
+              </p>
+              <div className="input-group">
+                <label className="input-label" htmlFor="otpCode">Verification code</label>
+                <input
+                  id="otpCode"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="123456"
+                  className="form-input"
+                  autoFocus
+                />
+                <span className="otp-help">
+                  Code expires in {Math.max(0, Math.ceil((new Date(otpChallenge.expiresAt).getTime() - Date.now()) / 60000))} minutes.
+                </span>
+              </div>
+              <button type="submit" disabled={loading} className="submit-button">
+                {loading ? 'Verifying...' : 'Verify and sign in'}
+              </button>
+              <button type="button" disabled={loading || resendInSeconds > 0} className="secondary-button" onClick={handleResendOtp}>
+                {resendInSeconds > 0 ? `Resend code in ${resendInSeconds}s` : 'Resend code'}
+              </button>
+              <button type="button" disabled={loading} className="back-button" onClick={restartLogin}>
+                Use a different account
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} className="login-form" noValidate>
             <p className="login-redirect">
               Don&apos;t have an account?{' '}
@@ -204,8 +294,9 @@ export const LoginPage: React.FC = () => {
               {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
+          )}
 
-          <p className="footer-note">Two-factor code required for administrators</p>
+          <p className="footer-note">Two-factor verification is required for every sign-in</p>
         </div>
       </div>
     </div>

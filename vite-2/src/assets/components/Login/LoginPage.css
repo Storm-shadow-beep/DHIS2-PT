@@ -253,6 +253,39 @@
   cursor: not-allowed;
 }
 
+.secondary-button,
+.back-button {
+  width: 100%;
+  padding: 11px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary-button {
+  color: #132c45;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+}
+
+.back-button {
+  color: #64748b;
+  background: transparent;
+  border: none;
+}
+
+.secondary-button:disabled,
+.back-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.otp-help {
+  color: #64748b;
+  font-size: 12px;
+}
+
 .error-box {
   background: linear-gradient(135deg, #fff5f5 0%, #ffe9ea 100%);
   color: #b3261e;

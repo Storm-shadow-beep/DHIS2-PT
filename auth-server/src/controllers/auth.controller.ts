@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import * as authService from '../services/auth.service';
 import * as tokenService from '../services/token.service';
+import * as otpService from '../services/otp.service';
 import { asyncHandler } from '../utils/asyncHandler';
 import { env } from '../config/env';
 
@@ -45,12 +46,59 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
     password?: string;
     rememberMe?: boolean;
   };
-  const result = await authService.login(
-    { email: email ?? '', password: password ?? '', rememberMe },
-    { userAgent: req.get('user-agent'), ipAddress: req.ip },
+  const identity = await authService.verifyLoginCredentials({
+    email: email ?? '',
+    password: password ?? '',
+    rememberMe,
+  });
+  const challenge = await otpService.createLoginChallenge(identity, {
+    userAgent: req.get('user-agent'),
+    ipAddress: req.ip,
+  });
+  res.json({
+    message: 'Verification code sent',
+    requiresOtp: true,
+    ...challenge,
+  });
+});
+
+export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
+  const { challengeId, code, rememberMe } = req.body as {
+    challengeId?: string;
+    code?: string;
+    rememberMe?: boolean;
+  };
+  if (!challengeId) {
+    res.status(400).json({ message: 'Verification session is required.' });
+    return;
+  }
+
+  const result = await otpService.verifyLoginChallenge(
+    challengeId,
+    code ?? '',
+    Boolean(rememberMe),
+    (userId, shouldRememberMe) =>
+      authService.issueTokensForUser(userId, shouldRememberMe, {
+        userAgent: req.get('user-agent'),
+        ipAddress: req.ip,
+      }),
   );
   setRefreshCookie(res, result.refreshToken, Boolean(rememberMe));
   res.json({ message: 'Logged in', user: result.user, accessToken: result.accessToken });
+});
+
+export const resendOtp = asyncHandler(async (req: Request, res: Response) => {
+  const { challengeId } = req.body as { challengeId?: string };
+  if (!challengeId) {
+    res.status(400).json({ message: 'Verification session is required.' });
+    return;
+  }
+
+  const challenge = await otpService.resendLoginChallenge(challengeId, {
+    userAgent: req.get('user-agent'),
+    ipAddress: req.ip,
+  });
+  res.json({ message: 'Verification code sent', requiresOtp: true, ...challenge });
 });
 
 export const refresh = asyncHandler(async (req: Request, res: Response) => {
