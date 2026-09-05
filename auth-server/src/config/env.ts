@@ -46,4 +46,5 @@ export const env = {
   otpResendCooldownSeconds: Number(process.env.OTP_RESEND_COOLDOWN_SECONDS) || 60,
   otpMaxSendsPerWindow: Number(process.env.OTP_MAX_SENDS_PER_WINDOW) || 5,
   otpSendWindowMinutes: Number(process.env.OTP_SEND_WINDOW_MINUTES) || 15,
+  passwordResetExpiryMinutes: Number(process.env.PASSWORD_RESET_EXPIRY_MINUTES) || 60,
 } as const;

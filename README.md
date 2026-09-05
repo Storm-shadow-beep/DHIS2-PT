@@ -136,6 +136,15 @@ Open http://localhost:8025 to view locally delivered OTP messages.
 For a real email provider, configure `OTP_EMAIL_PROVIDER=resend`,
 `RESEND_API_KEY`, and `RESEND_FROM_EMAIL` instead.
 
+## Password reset
+
+The login page includes a password reset flow. Reset tokens are stored only as
+SHA-256 hashes, expire after 60 minutes by default, and are invalidated after
+one use or when a newer reset is requested. Configure
+`PASSWORD_RESET_EXPIRY_MINUTES` to change the lifetime. Reset messages use the
+same Resend, SMTP, or development-only file mailbox provider as login OTP
+messages.
+
 ## Useful commands
 
 ### Auth service

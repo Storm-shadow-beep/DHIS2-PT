@@ -287,7 +287,7 @@ export const LoginPage: React.FC = () => {
                 />
                 Keep me signed in
               </label>
-              <a href="#forgot-password" className="forgot-link">Forgot password</a>
+              <a href="/forgot-password" className="forgot-link">Forgot password</a>
             </div>
 
             <button type="submit" disabled={loading} className="submit-button">

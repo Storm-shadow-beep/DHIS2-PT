@@ -100,6 +100,24 @@ export const resendOtpApi = async (challengeId: string): Promise<OtpChallenge> =
   return parseResponse<OtpChallenge>(response);
 };
 
+export const requestPasswordResetApi = async (email: string): Promise<void> => {
+  const response = await authFetch('/api/auth/forgot-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  }, false);
+  await parseResponse<{ message: string }>(response);
+};
+
+export const resetPasswordApi = async (token: string, newPassword: string): Promise<void> => {
+  const response = await authFetch('/api/auth/reset-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, newPassword }),
+  }, false);
+  await parseResponse<{ message: string }>(response);
+};
+
 export const registerApi = async (input: {
   fullName: string;
   email: string;

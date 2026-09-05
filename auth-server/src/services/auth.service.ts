@@ -1,10 +1,12 @@
+import crypto from 'crypto';
 import bcrypt from 'bcrypt';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull } from 'drizzle-orm';
 import { db } from '../db';
-import { roles, users, userRoles } from '../db/schema';
+import { passwordResetTokens, roles, users, userRoles } from '../db/schema';
 import { env } from '../config/env';
 import { LoginInput, RegisterInput, RoleName, ROLE_NAMES, SafeUser } from '../types/auth.types';
 import { issueRefreshToken, signAccessToken } from './token.service';
+import { sendPasswordResetEmail } from './email.service';
 
 const ROLE_DISPLAY_NAMES: Record<RoleName, string> = {
   administrator: 'Administrator',
@@ -156,17 +158,68 @@ export async function getUserById(id: string): Promise<SafeUser | null> {
 
 export async function requestPasswordReset(email: string): Promise<void> {
   const normalizedEmail = normalizeEmail(email);
-  const [user] = await db.select({ id: users.id }).from(users).where(eq(users.email, normalizedEmail)).limit(1);
+  const [user] = await db
+    .select({ id: users.id, email: users.email })
+    .from(users)
+    .where(and(eq(users.email, normalizedEmail), eq(users.isActive, true)))
+    .limit(1);
   if (!user) return;
-  // Email delivery is intentionally deferred; do not expose account existence.
-  console.info(`[auth] password reset requested for ${user.id}`);
+
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+  const expiresAt = new Date(Date.now() + env.passwordResetExpiryMinutes * 60 * 1000);
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(passwordResetTokens)
+      .set({ usedAt: new Date() })
+      .where(and(eq(passwordResetTokens.userId, user.id), isNull(passwordResetTokens.usedAt), gt(passwordResetTokens.expiresAt, new Date())));
+
+    await tx.insert(passwordResetTokens).values({
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+    });
+  });
+
+  const resetLink = `${env.frontendUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
+  await sendPasswordResetEmail({
+    to: user.email,
+    resetLink,
+    expiresInMinutes: env.passwordResetExpiryMinutes,
+  });
 }
 
 export async function resetPassword(input: { token: string; newPassword: string }): Promise<void> {
   if (!input.token || input.newPassword.length < 8 || !/[A-Za-z]/.test(input.newPassword) || !/\d/.test(input.newPassword)) {
     throw httpError('Invalid password reset request', 400);
   }
-  throw httpError('Password reset delivery is not configured', 501);
+
+  const tokenHash = crypto.createHash('sha256').update(input.token).digest('hex');
+  const now = new Date();
+  await db.transaction(async (tx) => {
+    const [resetToken] = await tx
+      .select({ id: passwordResetTokens.id, userId: passwordResetTokens.userId })
+      .from(passwordResetTokens)
+      .where(and(
+        eq(passwordResetTokens.tokenHash, tokenHash),
+        isNull(passwordResetTokens.usedAt),
+        gt(passwordResetTokens.expiresAt, now),
+      ))
+      .limit(1);
+
+    if (!resetToken) throw httpError('This password reset link is invalid or expired', 400);
+
+    const passwordHash = await bcrypt.hash(input.newPassword, env.bcryptSaltRounds);
+    await tx
+      .update(users)
+      .set({ passwordHash, updatedAt: now })
+      .where(eq(users.id, resetToken.userId));
+    await tx
+      .update(passwordResetTokens)
+      .set({ usedAt: now })
+      .where(eq(passwordResetTokens.id, resetToken.id));
+  });
 }
 
 export { getRole };

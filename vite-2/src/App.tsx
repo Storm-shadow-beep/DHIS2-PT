@@ -8,10 +8,13 @@ import { DashboardPage } from './assets/components/Dashboard';
 import { ProjectsPage } from './assets/components/Projects/ProjectsPage';
 import { DocumentsPage } from './assets/components/Documents/DocumentsPage';
 import { getCurrentUserApi } from './assets/components/services/authApi';
+import { PasswordResetPage } from './assets/components/PasswordReset/PasswordResetPage';
 
 const routeTitles: Record<string, string> = {
   '/': 'PMS: Login',
   '/register': 'PMS: Registration',
+  '/forgot-password': 'PMS: Forgot Password',
+  '/reset-password': 'PMS: Reset Password',
   '/dashboard': 'PMS: Dashboard',
   '/projects': 'PMS: Projects',
   '/documents': 'PMS: Documents',
@@ -56,6 +59,8 @@ function App() {
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<PasswordResetPage mode="request" />} />
+        <Route path="/reset-password" element={<PasswordResetPage mode="reset" />} />
 
         {/* Protected Routes inside unified MainLayout */}
         <Route

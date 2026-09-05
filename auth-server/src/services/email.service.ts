@@ -14,28 +14,17 @@ const smtpTransport = env.otpEmailProvider === 'smtp'
   })
   : null;
 
-export async function sendLoginOtpEmail(input: {
-  to: string;
-  code: string;
-  expiresInMinutes: number;
-}): Promise<void> {
-  const subject = 'Your sign-in verification code';
-  const text = [
-    `Your Project Management Software verification code is ${input.code}.`,
-    `This code expires in ${input.expiresInMinutes} minutes.`,
-    'If you did not try to sign in, you can safely ignore this email.',
-  ].join('\n\n');
-
+async function sendTextEmail(input: { to: string; subject: string; text: string; fileSuffix: string }): Promise<void> {
   if (env.otpEmailProvider === 'file') {
     if (env.nodeEnv === 'production') {
       throw new Error('File email delivery is not allowed in production');
     }
     const mailboxDirectory = path.resolve(process.cwd(), '.local-mailbox');
-    const filename = `${new Date().toISOString().replace(/[:.]/g, '-')}-${input.to.replace(/[^a-z0-9]/gi, '_')}.txt`;
+    const filename = `${new Date().toISOString().replace(/[:.]/g, '-')}-${input.to.replace(/[^a-z0-9]/gi, '_')}-${input.fileSuffix}.txt`;
     await mkdir(mailboxDirectory, { recursive: true });
     await writeFile(
       path.join(mailboxDirectory, filename),
-      `To: ${input.to}\nSubject: ${subject}\n\n${text}\n`,
+      `To: ${input.to}\nSubject: ${input.subject}\n\n${input.text}\n`,
       { encoding: 'utf8', flag: 'wx' },
     );
     return;
@@ -46,8 +35,8 @@ export async function sendLoginOtpEmail(input: {
     await smtpTransport.sendMail({
       from: `${env.smtpFromName} <${env.smtpFromEmail}>`,
       to: input.to,
-      subject,
-      text,
+      subject: input.subject,
+      text: input.text,
     });
     return;
   }
@@ -59,11 +48,46 @@ export async function sendLoginOtpEmail(input: {
   const result = await resend.emails.send({
     from: `${env.resendFromName} <${env.resendFromEmail}>`,
     to: [input.to],
-    subject,
-    text,
+    subject: input.subject,
+    text: input.text,
   });
 
   if (result.error) {
     throw new Error(`Resend delivery failed: ${result.error.message}`);
   }
+}
+
+export function sendLoginOtpEmail(input: {
+  to: string;
+  code: string;
+  expiresInMinutes: number;
+}): Promise<void> {
+  return sendTextEmail({
+    to: input.to,
+    subject: 'Your sign-in verification code',
+    text: [
+      `Your Project Management Software verification code is ${input.code}.`,
+      `This code expires in ${input.expiresInMinutes} minutes.`,
+      'If you did not try to sign in, you can safely ignore this email.',
+    ].join('\n\n'),
+    fileSuffix: 'otp',
+  });
+}
+
+export function sendPasswordResetEmail(input: {
+  to: string;
+  resetLink: string;
+  expiresInMinutes: number;
+}): Promise<void> {
+  return sendTextEmail({
+    to: input.to,
+    subject: 'Reset your Project Management Software password',
+    text: [
+      'We received a request to reset your password.',
+      `Use this link to choose a new password: ${input.resetLink}`,
+      `This link expires in ${input.expiresInMinutes} minutes and can only be used once.`,
+      'If you did not request a password reset, you can safely ignore this email.',
+    ].join('\n\n'),
+    fileSuffix: 'password-reset',
+  });
 }
