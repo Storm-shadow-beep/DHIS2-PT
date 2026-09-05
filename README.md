@@ -140,7 +140,8 @@ For a real email provider, configure `OTP_EMAIL_PROVIDER=resend`,
 
 The login page includes a password reset flow. Reset tokens are stored only as
 SHA-256 hashes, expire after 60 minutes by default, and are invalidated after
-one use or when a newer reset is requested. Configure
+one use or when a newer reset is requested. Successfully changing a password
+also revokes all of the account's active refresh-token sessions. Configure
 `PASSWORD_RESET_EXPIRY_MINUTES` to change the lifetime. Reset messages use the
 same Resend, SMTP, or development-only file mailbox provider as login OTP
 messages.

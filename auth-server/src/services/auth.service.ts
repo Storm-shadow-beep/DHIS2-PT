@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { db } from '../db';
-import { passwordResetTokens, roles, users, userRoles } from '../db/schema';
+import { passwordResetTokens, refreshTokens, roles, users, userRoles } from '../db/schema';
 import { env } from '../config/env';
 import { LoginInput, RegisterInput, RoleName, ROLE_NAMES, SafeUser } from '../types/auth.types';
 import { issueRefreshToken, signAccessToken } from './token.service';
@@ -219,6 +219,10 @@ export async function resetPassword(input: { token: string; newPassword: string 
       .update(passwordResetTokens)
       .set({ usedAt: now })
       .where(eq(passwordResetTokens.id, resetToken.id));
+    await tx
+      .update(refreshTokens)
+      .set({ revokedAt: now })
+      .where(and(eq(refreshTokens.userId, resetToken.userId), isNull(refreshTokens.revokedAt)));
   });
 }
 
