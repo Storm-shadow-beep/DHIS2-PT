@@ -25,12 +25,14 @@ const toSafeUser = (user: {
   fullName: string;
   email: string;
   role: RoleName;
+  roles?: RoleName[];
 }): SafeUser => ({
   id: user.id,
   fullName: user.fullName,
   email: user.email,
   role: user.role,
   roleDisplayName: ROLE_DISPLAY_NAMES[user.role],
+  roles: [...new Set(user.roles?.length ? user.roles : [user.role])],
 });
 
 async function getRole(roleName: RoleName) {
@@ -76,8 +78,8 @@ export async function register(input: RegisterInput): Promise<SafeUser> {
   return toSafeUser(created);
 }
 
-async function findUserWithRole(email: string) {
-  const [result] = await db
+async function findUserWithRoles(email: string) {
+  const results = await db
     .select({
       id: users.id,
       fullName: users.fullName,
@@ -90,9 +92,15 @@ async function findUserWithRole(email: string) {
     .innerJoin(userRoles, eq(userRoles.userId, users.id))
     .innerJoin(roles, eq(roles.id, userRoles.roleId))
     .where(and(eq(users.email, email), isNull(userRoles.projectId)))
-    .limit(1);
+    ;
 
-  return result;
+  const first = results[0];
+  return first
+    ? {
+        ...first,
+        roles: results.map((result) => result.role as RoleName),
+      }
+    : null;
 }
 
 export interface LoginIdentity {
@@ -102,7 +110,7 @@ export interface LoginIdentity {
 
 export async function verifyLoginCredentials(input: LoginInput): Promise<LoginIdentity> {
   const email = normalizeEmail(input.email);
-  const user = await findUserWithRole(email);
+  const user = await findUserWithRoles(email);
   const genericError = httpError('Invalid email or password', 401);
 
   if (!user || !user.isActive) throw genericError;
@@ -110,7 +118,16 @@ export async function verifyLoginCredentials(input: LoginInput): Promise<LoginId
   if (!passwordValid) throw genericError;
 
   const role = user.role as RoleName;
-  return { user: toSafeUser({ id: user.id, fullName: user.fullName, email: user.email, role }), role };
+  return {
+    user: toSafeUser({
+      id: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      role,
+      roles: user.roles,
+    }),
+    role,
+  };
 }
 
 export async function issueTokensForUser(
@@ -127,6 +144,7 @@ export async function issueTokensForUser(
     sub: user.id,
     email: user.email,
     role: user.role,
+    roles: user.roles,
     fullName: user.fullName,
   };
   const accessToken = signAccessToken(tokenPayload);
@@ -139,7 +157,7 @@ export async function issueTokensForUser(
 }
 
 export async function getUserById(id: string): Promise<SafeUser | null> {
-  const [result] = await db
+  const results = await db
     .select({
       id: users.id,
       fullName: users.fullName,
@@ -151,9 +169,19 @@ export async function getUserById(id: string): Promise<SafeUser | null> {
     .innerJoin(userRoles, eq(userRoles.userId, users.id))
     .innerJoin(roles, eq(roles.id, userRoles.roleId))
     .where(and(eq(users.id, id), eq(users.isActive, true), isNull(userRoles.projectId)))
-    .limit(1);
+    ;
 
-  return result ? { ...result, role: result.role as RoleName } : null;
+  const first = results[0];
+  if (!first) return null;
+
+  const rolesForUser = [...new Set(results.map((result) => result.role as RoleName))];
+  return toSafeUser({
+    id: first.id,
+    fullName: first.fullName,
+    email: first.email,
+    role: first.role as RoleName,
+    roles: rolesForUser,
+  });
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
@@ -223,6 +251,56 @@ export async function resetPassword(input: { token: string; newPassword: string 
       .update(refreshTokens)
       .set({ revokedAt: now })
       .where(and(eq(refreshTokens.userId, resetToken.userId), isNull(refreshTokens.revokedAt)));
+  });
+}
+
+export async function changePassword(input: {
+  userId: string;
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  if (
+    !input.currentPassword ||
+    input.newPassword.length < 8 ||
+    !/[A-Za-z]/.test(input.newPassword) ||
+    !/\d/.test(input.newPassword)
+  ) {
+    throw httpError(
+      'New password must be at least 8 characters and contain letters and numbers',
+      400,
+    );
+  }
+
+  const [user] = await db
+    .select({
+      id: users.id,
+      passwordHash: users.passwordHash,
+      isActive: users.isActive,
+    })
+    .from(users)
+    .where(eq(users.id, input.userId))
+    .limit(1);
+
+  if (!user || !user.isActive) throw httpError('Not authenticated', 401);
+
+  const currentPasswordValid = await bcrypt.compare(input.currentPassword, user.passwordHash);
+  if (!currentPasswordValid) throw httpError('Current password is incorrect', 400);
+
+  if (input.currentPassword === input.newPassword) {
+    throw httpError('New password must be different from the current password', 400);
+  }
+
+  const now = new Date();
+  const passwordHash = await bcrypt.hash(input.newPassword, env.bcryptSaltRounds);
+  await db.transaction(async (tx) => {
+    await tx
+      .update(users)
+      .set({ passwordHash, updatedAt: now })
+      .where(eq(users.id, user.id));
+    await tx
+      .update(refreshTokens)
+      .set({ revokedAt: now })
+      .where(and(eq(refreshTokens.userId, user.id), isNull(refreshTokens.revokedAt)));
   });
 }
 

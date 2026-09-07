@@ -3,6 +3,7 @@ import {
   index,
   integer,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -25,6 +26,8 @@ export const roles = pgTable('roles', {
   name: varchar('name', { length: 50 }).notNull().unique(),
   displayName: varchar('display_name', { length: 100 }).notNull(),
   description: text('description'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const permissions = pgTable('permissions', {
@@ -32,12 +35,18 @@ export const permissions = pgTable('permissions', {
   name: varchar('name', { length: 100 }).notNull().unique(),
   module: varchar('module', { length: 50 }).notNull(),
   description: text('description'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const rolePermissions = pgTable('role_permissions', {
-  roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
-  permissionId: uuid('permission_id').notNull().references(() => permissions.id, { onDelete: 'cascade' }),
-});
+export const rolePermissions = pgTable(
+  'role_permissions',
+  {
+    roleId: uuid('role_id').notNull().references(() => roles.id, { onDelete: 'cascade' }),
+    permissionId: uuid('permission_id').notNull().references(() => permissions.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.roleId, table.permissionId] })],
+);
 
 export const userRoles = pgTable(
   'user_roles',
@@ -62,6 +71,7 @@ export const refreshTokens = pgTable(
     jti: uuid('jti').notNull().unique(),
     familyId: uuid('family_id').notNull(),
     tokenHash: varchar('token_hash', { length: 64 }).notNull().unique(),
+    rememberMe: boolean('remember_me').notNull().default(false),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     replacedByTokenId: uuid('replaced_by_token_id'),

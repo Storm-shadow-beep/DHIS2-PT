@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getCurrentUserApi } from '../services/authApi';
+import { useAuth } from '../auth/AuthContext';
 import './DocumentsPage.css';
 
 interface ProjectDocument {
@@ -218,7 +218,8 @@ export const DocumentsPage: React.FC = () => {
   const [projectDocSets, setProjectDocSets] = useState<ProjectDocSet[]>(() => getStoredProjectDocSets());
   const [selectedDocumentId, setSelectedDocumentId] = useState<string>('');
   const [showUploadForm, setShowUploadForm] = useState(false);
-  const [currentUserName, setCurrentUserName] = useState('Current User');
+  const { user } = useAuth();
+  const currentUserName = user?.fullName ?? 'Current User';
   const [uploadForm, setUploadForm] = useState({ title: '', phase: STANDARD_PHASES[0], fileName: '' });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -243,14 +244,6 @@ export const DocumentsPage: React.FC = () => {
       }));
     }
   }, [selectedProject]);
-
-  useEffect(() => {
-    getCurrentUserApi().then((user) => {
-      if (user?.fullName) {
-        setCurrentUserName(user.fullName);
-      }
-    });
-  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

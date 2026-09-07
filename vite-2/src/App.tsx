@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { LoginPage } from './assets/components/Login/LoginPage';
 import { RegisterPage } from './assets/components/Registration/Registration';
@@ -7,8 +7,9 @@ import { MainLayout } from './assets/components/MainLayout/MainLayout';
 import { DashboardPage } from './assets/components/Dashboard';
 import { ProjectsPage } from './assets/components/Projects/ProjectsPage';
 import { DocumentsPage } from './assets/components/Documents/DocumentsPage';
-import { getCurrentUserApi } from './assets/components/services/authApi';
 import { PasswordResetPage } from './assets/components/PasswordReset/PasswordResetPage';
+import { PermissionRoute, ProtectedRoute } from './assets/components/auth/RouteGuards';
+import { PERMISSION_NAMES } from './assets/components/services/authApi';
 
 const routeTitles: Record<string, string> = {
   '/': 'PMS: Login',
@@ -20,6 +21,7 @@ const routeTitles: Record<string, string> = {
   '/documents': 'PMS: Documents',
   '/reports': 'PMS: Reports',
   '/settings': 'PMS: Settings',
+  '/admin': 'PMS: Administration',
 };
 
 const PageTitleUpdater: React.FC = () => {
@@ -32,24 +34,6 @@ const PageTitleUpdater: React.FC = () => {
   }, [location]);
 
   return null;
-};
-
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    getCurrentUserApi()
-      .then((user) => { if (active) setIsAuthenticated(Boolean(user)); })
-      .catch(() => { if (active) setIsAuthenticated(false); });
-    return () => { active = false; };
-  }, []);
-
-  if (isAuthenticated === null) {
-    return <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', color: '#132c45' }}>Checking session...</div>;
-  }
-
-  return isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
 };
 
 function App() {
@@ -70,11 +54,32 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/documents" element={<DocumentsPage />} />
-          <Route path="/reports" element={<div>Reports (Coming Soon)</div>} />
+          <Route path="/dashboard" element={
+            <PermissionRoute permission={PERMISSION_NAMES.PROJECT_VIEW}>
+              <DashboardPage />
+            </PermissionRoute>
+          } />
+          <Route path="/projects" element={
+            <PermissionRoute permission={PERMISSION_NAMES.PROJECT_VIEW}>
+              <ProjectsPage />
+            </PermissionRoute>
+          } />
+          <Route path="/documents" element={
+            <PermissionRoute permission={PERMISSION_NAMES.DOCUMENT_VIEW}>
+              <DocumentsPage />
+            </PermissionRoute>
+          } />
+          <Route path="/reports" element={
+            <PermissionRoute permission={PERMISSION_NAMES.PROJECT_VIEW}>
+              <div>Reports (Coming Soon)</div>
+            </PermissionRoute>
+          } />
           <Route path="/settings" element={<div>Settings (Coming Soon)</div>} />
+          <Route path="/admin" element={
+            <PermissionRoute permission={PERMISSION_NAMES.USER_MANAGE}>
+              <div>Administration (Coming Soon)</div>
+            </PermissionRoute>
+          } />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

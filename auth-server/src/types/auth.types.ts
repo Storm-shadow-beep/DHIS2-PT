@@ -7,12 +7,27 @@ export const ROLE_NAMES = {
 
 export type RoleName = (typeof ROLE_NAMES)[keyof typeof ROLE_NAMES];
 
+export const PERMISSION_NAMES = {
+  USER_MANAGE: 'user:manage',
+  ROLE_MANAGE: 'role:manage',
+  PROJECT_VIEW: 'project:view',
+  PROJECT_MANAGE: 'project:manage',
+  PHASE_MANAGE: 'phase:manage',
+  DOCUMENT_VIEW: 'document:view',
+  DOCUMENT_UPLOAD: 'document:upload',
+  DOCUMENT_DELETE: 'document:delete',
+  DOCUMENT_APPROVE: 'document:approve',
+} as const;
+
+export type PermissionName = (typeof PERMISSION_NAMES)[keyof typeof PERMISSION_NAMES];
+
 export interface SafeUser {
   id: string;
   fullName: string;
   email: string;
   role: RoleName;
   roleDisplayName: string;
+  roles: RoleName[];
 }
 
 export interface JwtPayload {
@@ -21,6 +36,7 @@ export interface JwtPayload {
   tokenType: 'access' | 'refresh';
   email: string;
   role: RoleName;
+  roles?: RoleName[];
   fullName: string;
   familyId?: string;
   iat?: number;

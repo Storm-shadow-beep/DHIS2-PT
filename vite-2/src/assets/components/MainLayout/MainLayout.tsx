@@ -1,36 +1,24 @@
 // src/assets/components/MainLayout/MainLayout.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { getCurrentUserApi, logoutApi } from '../services/authApi';
-import type { UserSession } from '../services/authApi';
+import { PERMISSION_NAMES } from '../services/authApi';
+import { getRoleDisplayName, hasPermission } from '../auth/authorization';
+import { useAuth } from '../auth/AuthContext';
 import './MainLayout.css';
 
 export const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [user, setUser] = useState<UserSession | null>(null);
+  const { user, signOut } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
 
   const projectIdFromUrl = new URLSearchParams(location.search).get('projectId');
   const showDocumentsNav = (location.pathname === '/projects' || location.pathname === '/documents') && !!projectIdFromUrl;
 
-  useEffect(() => {
-    let active = true;
-    getCurrentUserApi()
-      .then((currentUser) => {
-        if (active) setUser(currentUser);
-      })
-      .catch((err) => console.error('Failed to load user info:', err));
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await logoutApi();
+      await signOut();
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
@@ -53,13 +41,17 @@ export const MainLayout: React.FC = () => {
         </div>
 
         <nav className="nav-menu">
-          <NavLink to="/dashboard" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
-            Dashboard
-          </NavLink>
-          <NavLink to="/projects" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
-            Projects
-          </NavLink>
-          {showDocumentsNav && (
+          {user && hasPermission(user, PERMISSION_NAMES.PROJECT_VIEW) && (
+            <NavLink to="/dashboard" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
+              Dashboard
+            </NavLink>
+          )}
+          {user && hasPermission(user, PERMISSION_NAMES.PROJECT_VIEW) && (
+            <NavLink to="/projects" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
+              Projects
+            </NavLink>
+          )}
+          {showDocumentsNav && user && hasPermission(user, PERMISSION_NAMES.DOCUMENT_VIEW) && (
             <NavLink
               to={`/documents?projectId=${projectIdFromUrl}`}
               className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
@@ -67,18 +59,25 @@ export const MainLayout: React.FC = () => {
               Documents
             </NavLink>
           )}
-          <NavLink to="/reports" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
-            Reports
-          </NavLink>
+          {user && hasPermission(user, PERMISSION_NAMES.PROJECT_VIEW) && (
+            <NavLink to="/reports" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
+              Reports
+            </NavLink>
+          )}
           <NavLink to="/settings" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
             Settings
           </NavLink>
+          {user && hasPermission(user, PERMISSION_NAMES.USER_MANAGE) && (
+            <NavLink to="/admin" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
+              Administration
+            </NavLink>
+          )}
         </nav>
 
         <div className="sidebar-footer">
           <div className="user-profile-side">
             <span className="user-info-side">
-              {user ? `${user.fullName} · ${user.role}` : 'Loading user...'}
+              {user ? `${user.fullName} · ${getRoleDisplayName(user)}` : 'Loading user...'}
             </span>
             <button onClick={handleLogout} disabled={isLoggingOut} className="logout-btn">
               {isLoggingOut ? 'Signing Out...' : 'Sign Out'}

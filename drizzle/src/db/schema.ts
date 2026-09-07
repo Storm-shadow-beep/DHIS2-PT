@@ -154,6 +154,7 @@ export const refreshTokens = pgTable(
     jti: uuid('jti').notNull().unique(),
     familyId: uuid('family_id').notNull(),
     tokenHash: varchar('token_hash', { length: 64 }).notNull().unique(),
+    rememberMe: boolean('remember_me').notNull().default(false),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     replacedByTokenId: uuid('replaced_by_token_id'),

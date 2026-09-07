@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginApi, getCurrentUserApi, resendOtpApi, verifyOtpApi } from '.././services/authApi';
+import { AuthApiError, loginApi, resendOtpApi, verifyOtpApi } from '.././services/authApi';
 import type { OtpChallenge } from '.././services/authApi';
+import { useAuth } from '../auth/AuthContext';
 import './LoginPage.css';
 
 interface LoginCredentials {
@@ -12,6 +13,7 @@ interface LoginCredentials {
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const { status, setAuthenticatedUser } = useAuth();
 
   const [formData, setFormData] = useState<LoginCredentials>({
     email: '',
@@ -27,13 +29,69 @@ export const LoginPage: React.FC = () => {
   const [otpCode, setOtpCode] = useState('');
   const [resendInSeconds, setResendInSeconds] = useState(0);
 
-  useEffect(() => {
-    getCurrentUserApi().then((user) => {
-      if (user) {
-        navigate('/dashboard');
+  // Paused state after the server-side rate limit (5 login attempts) is hit.
+  // lockoutUntil is an epoch-ms timestamp; while in the future the Sign in
+  // button is disabled so further clicks can't be sent.
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(() => {
+    try {
+      const stored = window.localStorage.getItem('login_lockout_until');
+      const parsed = stored ? Number(stored) : NaN;
+      return Number.isFinite(parsed) && parsed > Date.now() ? parsed : null;
+    } catch {
+      return null;
+    }
+  });
+  const [lockoutRemaining, setLockoutRemaining] = useState<number>(() => {
+    try {
+      const stored = window.localStorage.getItem('login_lockout_until');
+      const parsed = stored ? Number(stored) : NaN;
+      if (Number.isFinite(parsed) && parsed > Date.now()) {
+        return Math.max(0, Math.ceil((parsed - Date.now()) / 1000));
       }
-    });
-  }, [navigate]);
+    } catch {
+      // ignore — defaults to 0 below
+    }
+    return 0;
+  });
+  const isLocked = lockoutUntil !== null && lockoutRemaining > 0;
+
+  const formatLockout = (totalSeconds: number): string => {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return m > 0 ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`;
+  };
+
+  const enterLockout = (retryAfterSeconds?: number) => {
+    const fallbackSeconds = 15 * 60;
+    const seconds =
+      typeof retryAfterSeconds === 'number' && Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+        ? Math.ceil(retryAfterSeconds)
+        : fallbackSeconds;
+    const until = Date.now() + seconds * 1000;
+    setLockoutUntil(until);
+    setLockoutRemaining(seconds);
+    try {
+      window.localStorage.setItem('login_lockout_until', String(until));
+    } catch {
+      // Storage unavailable (private mode etc.) — in-memory lockout still applies.
+    }
+  };
+
+  const clearLockout = () => {
+    setLockoutUntil(null);
+    setLockoutRemaining(0);
+    setFailedAttempts(0);
+    try {
+      window.localStorage.removeItem('login_lockout_until');
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    if (status === 'authenticated') navigate('/dashboard');
+  }, [navigate, status]);
 
   useEffect(() => {
     if (!otpChallenge) return undefined;
@@ -44,6 +102,31 @@ export const LoginPage: React.FC = () => {
     const timer = window.setInterval(updateCountdown, 1000);
     return () => window.clearInterval(timer);
   }, [otpChallenge]);
+
+  useEffect(() => {
+    if (!lockoutUntil) {
+      setLockoutRemaining(0);
+      return undefined;
+    }
+    const updateLockoutCountdown = () => {
+      const remaining = Math.max(0, Math.ceil((lockoutUntil - Date.now()) / 1000));
+      setLockoutRemaining(remaining);
+      if (remaining <= 0) {
+        setLockoutUntil(null);
+        setFailedAttempts(0);
+        try {
+          window.localStorage.removeItem('login_lockout_until');
+        } catch {
+          // ignore
+        }
+      }
+    };
+    updateLockoutCountdown();
+    const timer = window.setInterval(updateLockoutCountdown, 1000);
+    return () => window.clearInterval(timer);
+    // clearLockout intentionally inlined here to keep this effect dependent only on lockoutUntil.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lockoutUntil]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -81,6 +164,7 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isLocked) return;
     setErrorMessage(null);
     setSuccessMessage(null);
 
@@ -90,15 +174,29 @@ export const LoginPage: React.FC = () => {
 
     try {
       const challenge = await loginApi(formData.email, formData.password, formData.rememberMe);
+      setFailedAttempts(0);
       setOtpChallenge(challenge);
       setOtpCode('');
       setSuccessMessage('A verification code was sent to your email.');
       setLoading(false);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setErrorMessage(err.message);
+      if (err instanceof AuthApiError && err.status === 429) {
+        enterLockout(err.retryAfterSeconds);
+        setErrorMessage(
+          `Too many sign-in attempts. The Sign in button is paused — try again in ${formatLockout(
+            err.retryAfterSeconds && Number.isFinite(err.retryAfterSeconds) && err.retryAfterSeconds > 0
+              ? Math.ceil(err.retryAfterSeconds)
+              : 15 * 60,
+          )}.`,
+        );
       } else {
-        setErrorMessage('An unexpected error occurred during authentication.');
+        const nextFailed = failedAttempts + 1;
+        setFailedAttempts(nextFailed);
+        if (err instanceof Error) {
+          setErrorMessage(err.message);
+        } else {
+          setErrorMessage('An unexpected error occurred during authentication.');
+        }
       }
       setLoading(false);
     }
@@ -106,6 +204,7 @@ export const LoginPage: React.FC = () => {
 
   const handleVerifyOtp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isLocked) return;
     setErrorMessage(null);
     setSuccessMessage(null);
     if (!/^\d{6}$/.test(otpCode)) {
@@ -115,17 +214,24 @@ export const LoginPage: React.FC = () => {
 
     setLoading(true);
     try {
-      await verifyOtpApi(otpChallenge!.challengeId, otpCode, formData.rememberMe);
+      const user = await verifyOtpApi(otpChallenge!.challengeId, otpCode, formData.rememberMe);
+      clearLockout();
+      setAuthenticatedUser(user);
       setSuccessMessage('Login successful!');
       setTimeout(() => navigate('/dashboard'), 500);
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Verification failed.');
+      if (err instanceof AuthApiError && err.status === 429) {
+        enterLockout(err.retryAfterSeconds);
+        setErrorMessage('Too many verification attempts. Buttons are paused — please wait before trying again.');
+      } else {
+        setErrorMessage(err instanceof Error ? err.message : 'Verification failed.');
+      }
       setLoading(false);
     }
   };
 
   const handleResendOtp = async () => {
-    if (!otpChallenge || resendInSeconds > 0 || loading) return;
+    if (!otpChallenge || resendInSeconds > 0 || loading || isLocked) return;
     setErrorMessage(null);
     setLoading(true);
     try {
@@ -211,10 +317,15 @@ export const LoginPage: React.FC = () => {
                   Code expires in {Math.max(0, Math.ceil((new Date(otpChallenge.expiresAt).getTime() - Date.now()) / 60000))} minutes.
                 </span>
               </div>
-              <button type="submit" disabled={loading} className="submit-button">
-                {loading ? 'Verifying...' : 'Verify and sign in'}
+              <button
+                type="submit"
+                disabled={loading || isLocked}
+                className={`submit-button${isLocked ? ' is-paused' : ''}`}
+                title={isLocked ? `Paused — try again in ${formatLockout(lockoutRemaining)}` : undefined}
+              >
+                {isLocked ? `Paused — try again in ${formatLockout(lockoutRemaining)}` : loading ? 'Verifying...' : 'Verify and sign in'}
               </button>
-              <button type="button" disabled={loading || resendInSeconds > 0} className="secondary-button" onClick={handleResendOtp}>
+              <button type="button" disabled={loading || isLocked || resendInSeconds > 0} className="secondary-button" onClick={handleResendOtp}>
                 {resendInSeconds > 0 ? `Resend code in ${resendInSeconds}s` : 'Resend code'}
               </button>
               <button type="button" disabled={loading} className="back-button" onClick={restartLogin}>
@@ -240,6 +351,7 @@ export const LoginPage: React.FC = () => {
                 onChange={handleChange}
                 placeholder="peter.salum@moh.go.tz"
                 className="form-input"
+                disabled={loading || isLocked}
               />
             </div>
 
@@ -254,6 +366,7 @@ export const LoginPage: React.FC = () => {
                   onChange={handleChange}
                   placeholder="••••••••••••"
                   className="form-input password-input"
+                  disabled={loading || isLocked}
                 />
                 <button
                   type="button"
@@ -290,9 +403,21 @@ export const LoginPage: React.FC = () => {
               <a href="/forgot-password" className="forgot-link">Forgot password</a>
             </div>
 
-            <button type="submit" disabled={loading} className="submit-button">
-              {loading ? 'Signing in...' : 'Sign in'}
+            <button
+              type="submit"
+              disabled={loading || isLocked}
+              className={`submit-button${isLocked ? ' is-paused' : ''}`}
+              title={isLocked ? `Paused — try again in ${formatLockout(lockoutRemaining)}` : undefined}
+            >
+              {isLocked ? `Paused — try again in ${formatLockout(lockoutRemaining)}` : loading ? 'Signing in...' : 'Sign in'}
             </button>
+            {failedAttempts > 0 && !isLocked && (
+              <span className="otp-help" role="status">
+                {failedAttempts >= 5
+                  ? 'Limit reached — the next attempt may pause Sign in.'
+                  : `${5 - failedAttempts} of 5 attempts remaining before Sign in pauses.`}
+              </span>
+            )}
           </form>
           )}
 

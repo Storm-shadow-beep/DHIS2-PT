@@ -4,6 +4,8 @@ import { db } from '../db';
 import { roles, userRoles } from '../db/schema';
 import { RoleName } from '../types/auth.types';
 
+export { requirePermission } from './permission.middleware';
+
 export const authorize =
   (...allowedRoles: RoleName[]): RequestHandler =>
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {

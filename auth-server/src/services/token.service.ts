@@ -10,6 +10,7 @@ type TokenPayload = {
   sub: string;
   email: string;
   role: RoleName;
+  roles?: RoleName[];
   fullName: string;
   familyId?: string;
 };
@@ -59,6 +60,7 @@ export async function issueRefreshToken(
     jti: id,
     familyId,
     tokenHash: hashToken(token),
+    rememberMe: options.rememberMe,
     expiresAt: new Date((decoded.exp ?? 0) * 1000),
     userAgent: options.userAgent,
     ipAddress: options.ipAddress,
@@ -130,11 +132,12 @@ export async function refreshAccessToken(
     sub: decoded.sub,
     email: decoded.email,
     role: decoded.role,
+    roles: decoded.roles,
     fullName: decoded.fullName,
     familyId: stored.familyId,
   };
   const accessToken = signAccessToken(payload);
-  const rememberMe = stored.expiresAt.getTime() - Date.now() > 8 * 24 * 60 * 60 * 1000;
+  const rememberMe = stored.rememberMe;
   const replacement = await issueRefreshToken(payload, {
     rememberMe,
     familyId: stored.familyId,

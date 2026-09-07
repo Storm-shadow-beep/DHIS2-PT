@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import { env } from './config/env';
 import authRoutes from './routes/auth.routes';
+import adminRoutes from './routes/admin.routes';
 import { notFound, errorHandler } from './middleware/error.middleware';
 
 const app = express();
@@ -12,7 +13,7 @@ const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: env.allowedOrigins.length > 0 ? env.allowedOrigins : true,
+    origin: env.allowedOrigins.length > 0 ? env.allowedOrigins : false,
     credentials: true,
   })
 );
@@ -28,6 +29,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

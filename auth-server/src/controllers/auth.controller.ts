@@ -134,6 +134,26 @@ export const resetPassword = asyncHandler(async (req: Request, res: Response) =>
   res.json({ message: 'Password reset successful' });
 });
 
+export const changePassword = asyncHandler(async (req: Request, res: Response) => {
+  const { currentPassword, newPassword } = req.body as {
+    currentPassword?: string;
+    newPassword?: string;
+  };
+
+  if (!req.user) {
+    res.status(401).json({ message: 'Not authenticated' });
+    return;
+  }
+
+  await authService.changePassword({
+    userId: req.user.sub,
+    currentPassword: currentPassword ?? '',
+    newPassword: newPassword ?? '',
+  });
+  clearRefreshCookie(res);
+  res.json({ message: 'Password changed successfully. Please sign in again.' });
+});
+
 export const me = asyncHandler(async (req: Request, res: Response) => {
   const user = req.user ? await authService.getUserById(req.user.sub) : null;
   if (!user) {

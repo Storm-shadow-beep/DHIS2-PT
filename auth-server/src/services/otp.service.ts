@@ -37,7 +37,7 @@ interface ChallengeResponse {
 }
 
 const hashCode = (challengeId: string, code: string): Buffer =>
-  crypto.createHmac('sha256', env.jwtSecret).update(`${challengeId}:${code}`).digest();
+  crypto.createHmac('sha256', env.otpHmacSecret).update(`${challengeId}:${code}`).digest();
 
 const generateCode = (): string => String(crypto.randomInt(100000, 1000000));
 
@@ -75,6 +75,7 @@ async function getIdentityByUserId(userId: string): Promise<LoginIdentity | null
       email: result.email,
       role: result.role as RoleName,
       roleDisplayName: result.roleDisplayName,
+      roles: [result.role as RoleName],
     },
   };
 }
