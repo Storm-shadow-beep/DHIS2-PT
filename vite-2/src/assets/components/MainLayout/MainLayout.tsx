@@ -64,6 +64,11 @@ export const MainLayout: React.FC = () => {
               Reports
             </NavLink>
           )}
+          {user && hasPermission(user, PERMISSION_NAMES.PROJECT_MANAGE) && (
+            <NavLink to="/project-manager" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
+              Manager Workspace
+            </NavLink>
+          )}
           <NavLink to="/settings" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
             Settings
           </NavLink>

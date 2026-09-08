@@ -8,6 +8,8 @@ import { DashboardPage } from './assets/components/Dashboard';
 import { ProjectsPage } from './assets/components/Projects/ProjectsPage';
 import { DocumentsPage } from './assets/components/Documents/DocumentsPage';
 import { PasswordResetPage } from './assets/components/PasswordReset/PasswordResetPage';
+import { ProjectManagerPage } from './assets/components/ProjectManager/ProjectManagerPage';
+import { ReportsPage } from './assets/components/Reports/ReportsPage';
 import { PermissionRoute, ProtectedRoute } from './assets/components/auth/RouteGuards';
 import { PERMISSION_NAMES } from './assets/components/services/authApi';
 
@@ -20,6 +22,7 @@ const routeTitles: Record<string, string> = {
   '/projects': 'PMS: Projects',
   '/documents': 'PMS: Documents',
   '/reports': 'PMS: Reports',
+  '/project-manager': 'PMS: Project Manager',
   '/settings': 'PMS: Settings',
   '/admin': 'PMS: Administration',
 };
@@ -71,7 +74,12 @@ function App() {
           } />
           <Route path="/reports" element={
             <PermissionRoute permission={PERMISSION_NAMES.PROJECT_VIEW}>
-              <div>Reports (Coming Soon)</div>
+              <ReportsPage />
+            </PermissionRoute>
+          } />
+          <Route path="/project-manager" element={
+            <PermissionRoute permission={PERMISSION_NAMES.PROJECT_MANAGE}>
+              <ProjectManagerPage />
             </PermissionRoute>
           } />
           <Route path="/settings" element={<div>Settings (Coming Soon)</div>} />
