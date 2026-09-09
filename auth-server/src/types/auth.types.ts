@@ -11,12 +11,17 @@ export const PERMISSION_NAMES = {
   USER_MANAGE: 'user:manage',
   ROLE_MANAGE: 'role:manage',
   PROJECT_VIEW: 'project:view',
+  PROJECT_CREATE: 'project:create',
   PROJECT_MANAGE: 'project:manage',
+  PROJECT_MEMBER_MANAGE: 'project:member:manage',
+  PROJECT_PUBLISH: 'project:publish',
   PHASE_MANAGE: 'phase:manage',
   DOCUMENT_VIEW: 'document:view',
   DOCUMENT_UPLOAD: 'document:upload',
   DOCUMENT_DELETE: 'document:delete',
   DOCUMENT_APPROVE: 'document:approve',
+  REPORT_VIEW: 'report:view',
+  REPORT_CREATE: 'report:create',
 } as const;
 
 export type PermissionName = (typeof PERMISSION_NAMES)[keyof typeof PERMISSION_NAMES];
@@ -28,6 +33,7 @@ export interface SafeUser {
   role: RoleName;
   roleDisplayName: string;
   roles: RoleName[];
+  permissions: string[];
 }
 
 export interface JwtPayload {

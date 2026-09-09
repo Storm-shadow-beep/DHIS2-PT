@@ -5,6 +5,12 @@ import { roles, userRoles } from '../db/schema';
 import { RoleName } from '../types/auth.types';
 
 export { requirePermission } from './permission.middleware';
+export {
+  requireDocumentAccess,
+  requireProjectAccess,
+  requireProjectManager,
+  requireProjectMember,
+} from './authorization.middleware';
 
 export const authorize =
   (...allowedRoles: RoleName[]): RequestHandler =>

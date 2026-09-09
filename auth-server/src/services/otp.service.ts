@@ -1,10 +1,11 @@
 import crypto from 'crypto';
 import { and, asc, eq, gt, isNull } from 'drizzle-orm';
 import { db } from '../db';
-import { otpChallenges, users, roles, userRoles } from '../db/schema';
+import { otpChallenges } from '../db/schema';
 import { env } from '../config/env';
 import { SafeUser, RoleName } from '../types/auth.types';
 import { sendLoginOtpEmail } from './email.service';
+import { getUserById } from './auth.service';
 
 const OTP_PURPOSE = 'login';
 
@@ -52,31 +53,11 @@ const publicChallenge = (challenge: {
 });
 
 async function getIdentityByUserId(userId: string): Promise<LoginIdentity | null> {
-  const [result] = await db
-    .select({
-      id: users.id,
-      fullName: users.fullName,
-      email: users.email,
-      role: roles.name,
-      roleDisplayName: roles.displayName,
-    })
-    .from(users)
-    .innerJoin(userRoles, eq(userRoles.userId, users.id))
-    .innerJoin(roles, eq(roles.id, userRoles.roleId))
-    .where(and(eq(users.id, userId), eq(users.isActive, true), isNull(userRoles.projectId)))
-    .limit(1);
-
-  if (!result) return null;
+  const user = await getUserById(userId);
+  if (!user) return null;
   return {
-    role: result.role as RoleName,
-    user: {
-      id: result.id,
-      fullName: result.fullName,
-      email: result.email,
-      role: result.role as RoleName,
-      roleDisplayName: result.roleDisplayName,
-      roles: [result.role as RoleName],
-    },
+    role: user.role as RoleName,
+    user,
   };
 }
 

@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '../db';
 import { refreshTokens, roles, userRoles, users } from '../db/schema';
+import { recordAudit } from './audit.service';
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -161,6 +162,13 @@ export async function setUserActive(
     }
   });
 
+  await recordAudit({
+    userId: actorId,
+    action: isActive ? 'user.activated' : 'user.deactivated',
+    entityType: 'user',
+    entityId: userId,
+  });
+
   return getAdminUser(userId);
 }
 
@@ -187,6 +195,14 @@ export async function assignGlobalRole(
     .insert(userRoles)
     .values({ userId, roleId: role.id, assignedBy: actorId })
     .onConflictDoNothing();
+
+  await recordAudit({
+    userId: actorId,
+    action: 'role.assigned',
+    entityType: 'user',
+    entityId: userId,
+    metadata: { roleName: normalizedRoleName },
+  });
 
   return getAdminUser(userId);
 }
@@ -244,5 +260,14 @@ export async function removeGlobalRole(
     .returning({ id: userRoles.id });
 
   if (removed.length === 0) throw serviceError('User does not have that global role', 404);
+
+  await recordAudit({
+    userId: actorId,
+    action: 'role.removed',
+    entityType: 'user',
+    entityId: userId,
+    metadata: { roleName: normalizedRoleName },
+  });
+
   return getAdminUser(userId);
 }

@@ -28,3 +28,5 @@ export const protect: RequestHandler = async (
     next(error);
   }
 };
+
+export const requireAuthenticatedUser = protect;

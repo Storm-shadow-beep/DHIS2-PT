@@ -1,5 +1,4 @@
 import {
-  PERMISSION_NAMES,
   ROLE_NAMES,
 } from '../services/authApi';
 import type { PermissionName, RoleName, UserSession } from '../services/authApi';
@@ -17,29 +16,6 @@ const ROLE_ALIASES: Record<string, RoleName> = {
   'document approver': ROLE_NAMES.DOCUMENT_APPROVER,
 };
 
-const ROLE_PERMISSIONS: Record<RoleName, PermissionName[]> = {
-  [ROLE_NAMES.ADMINISTRATOR]: Object.values(PERMISSION_NAMES),
-  [ROLE_NAMES.PROJECT_MANAGER]: [
-    PERMISSION_NAMES.PROJECT_VIEW,
-    PERMISSION_NAMES.PROJECT_MANAGE,
-    PERMISSION_NAMES.PHASE_MANAGE,
-    PERMISSION_NAMES.DOCUMENT_VIEW,
-    PERMISSION_NAMES.DOCUMENT_UPLOAD,
-    PERMISSION_NAMES.DOCUMENT_DELETE,
-  ],
-  [ROLE_NAMES.TEAM_MEMBER]: [
-    PERMISSION_NAMES.PROJECT_VIEW,
-    PERMISSION_NAMES.DOCUMENT_VIEW,
-    PERMISSION_NAMES.DOCUMENT_UPLOAD,
-    PERMISSION_NAMES.DOCUMENT_DELETE,
-  ],
-  [ROLE_NAMES.DOCUMENT_APPROVER]: [
-    PERMISSION_NAMES.PROJECT_VIEW,
-    PERMISSION_NAMES.DOCUMENT_VIEW,
-    PERMISSION_NAMES.DOCUMENT_APPROVE,
-  ],
-};
-
 export const normalizeRole = (role: string): RoleName | null =>
   ROLE_ALIASES[role.trim().toLowerCase()] ?? null;
 
@@ -52,13 +28,7 @@ export const getUserRoles = (user: UserSession): RoleName[] => [
 ];
 
 export const getUserPermissions = (user: UserSession): string[] => {
-  if (user.permissions && user.permissions.length > 0) {
-    return [...new Set(user.permissions)];
-  }
-
-  return [
-    ...new Set(getUserRoles(user).flatMap((role) => ROLE_PERMISSIONS[role])),
-  ];
+  return [...new Set(user.permissions ?? [])];
 };
 
 export const hasRole = (user: UserSession | null, role: RoleName): boolean =>

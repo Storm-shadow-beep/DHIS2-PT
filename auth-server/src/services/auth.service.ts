@@ -2,7 +2,15 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { and, eq, gt, isNull } from 'drizzle-orm';
 import { db } from '../db';
-import { passwordResetTokens, refreshTokens, roles, users, userRoles } from '../db/schema';
+import {
+  passwordResetTokens,
+  permissions,
+  refreshTokens,
+  rolePermissions,
+  roles,
+  users,
+  userRoles,
+} from '../db/schema';
 import { env } from '../config/env';
 import { LoginInput, RegisterInput, RoleName, ROLE_NAMES, SafeUser } from '../types/auth.types';
 import { issueRefreshToken, signAccessToken } from './token.service';
@@ -26,6 +34,7 @@ const toSafeUser = (user: {
   email: string;
   role: RoleName;
   roles?: RoleName[];
+  permissions: string[];
 }): SafeUser => ({
   id: user.id,
   fullName: user.fullName,
@@ -33,6 +42,7 @@ const toSafeUser = (user: {
   role: user.role,
   roleDisplayName: ROLE_DISPLAY_NAMES[user.role],
   roles: [...new Set(user.roles?.length ? user.roles : [user.role])],
+  permissions: [...new Set(user.permissions)],
 });
 
 async function getRole(roleName: RoleName) {
@@ -75,7 +85,9 @@ export async function register(input: RegisterInput): Promise<SafeUser> {
     return [{ ...user, role: ROLE_NAMES.TEAM_MEMBER }];
   });
 
-  return toSafeUser(created);
+  const registeredUser = await getUserById(created.id);
+  if (!registeredUser) throw httpError('Unable to load the registered account', 500);
+  return registeredUser;
 }
 
 async function findUserWithRoles(email: string) {
@@ -103,6 +115,17 @@ async function findUserWithRoles(email: string) {
     : null;
 }
 
+export async function getUserPermissions(userId: string): Promise<string[]> {
+  const rows = await db
+    .select({ permissionName: permissions.name })
+    .from(userRoles)
+    .innerJoin(rolePermissions, eq(rolePermissions.roleId, userRoles.roleId))
+    .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
+    .where(and(eq(userRoles.userId, userId), isNull(userRoles.projectId)));
+
+  return [...new Set(rows.map((row) => row.permissionName))];
+}
+
 export interface LoginIdentity {
   user: SafeUser;
   role: RoleName;
@@ -118,6 +141,7 @@ export async function verifyLoginCredentials(input: LoginInput): Promise<LoginId
   if (!passwordValid) throw genericError;
 
   const role = user.role as RoleName;
+  const userPermissions = await getUserPermissions(user.id);
   return {
     user: toSafeUser({
       id: user.id,
@@ -125,6 +149,7 @@ export async function verifyLoginCredentials(input: LoginInput): Promise<LoginId
       email: user.email,
       role,
       roles: user.roles,
+      permissions: userPermissions,
     }),
     role,
   };
@@ -175,12 +200,14 @@ export async function getUserById(id: string): Promise<SafeUser | null> {
   if (!first) return null;
 
   const rolesForUser = [...new Set(results.map((result) => result.role as RoleName))];
+  const userPermissions = await getUserPermissions(first.id);
   return toSafeUser({
     id: first.id,
     fullName: first.fullName,
     email: first.email,
     role: first.role as RoleName,
     roles: rolesForUser,
+    permissions: userPermissions,
   });
 }
 

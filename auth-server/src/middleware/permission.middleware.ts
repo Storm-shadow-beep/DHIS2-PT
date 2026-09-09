@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
-import { and, eq, isNull } from 'drizzle-orm';
-import { db } from '../db';
-import { permissions, rolePermissions, userRoles } from '../db/schema';
 import { PermissionName } from '../types/auth.types';
+import { assertGlobalPermission } from '../services/authorization.service';
+import { recordAudit } from '../services/audit.service';
 
 /**
  * Require a permission granted by one of the user's global roles.
@@ -19,30 +18,35 @@ export const requirePermission =
     }
 
     try {
-      const [grant] = await db
-        .select({ permissionId: permissions.id })
-        .from(userRoles)
-        .innerJoin(rolePermissions, eq(rolePermissions.roleId, userRoles.roleId))
-        .innerJoin(permissions, eq(permissions.id, rolePermissions.permissionId))
-        .where(
-          and(
-            eq(userRoles.userId, req.user.sub),
-            isNull(userRoles.projectId),
-            eq(permissions.name, permission),
-          ),
-        )
-        .limit(1);
-
-      if (!grant) {
+      await assertGlobalPermission(req.user.sub, permission);
+      next();
+    } catch (error) {
+      if (
+        error instanceof Error
+        && 'statusCode' in error
+        && (error as { statusCode?: number }).statusCode === 403
+      ) {
+        try {
+          await recordAudit({
+            userId: req.user.sub,
+            action: 'authorization.denied',
+            entityType: 'route',
+            metadata: {
+              permission,
+              method: req.method,
+              path: req.path,
+            },
+          });
+        } catch (auditError) {
+          next(auditError);
+          return;
+        }
         res.status(403).json({
           message: 'Forbidden: insufficient permission',
           code: 'INSUFFICIENT_PERMISSION',
         });
         return;
       }
-
-      next();
-    } catch (error) {
       next(error);
     }
   };

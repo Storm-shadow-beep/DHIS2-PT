@@ -31,7 +31,7 @@
 - Password rule (backend + registration page aligned): min 8 chars, letters + numbers, `confirmPassword` match.
 - `bcrypt` with configurable salt rounds (default 12).
 - Transactional insert: `users` + `user_roles(team_member, projectId=NULL)`.
-- Returns `SafeUser { id, fullName, email, role, roleDisplayName, roles }` — never returns hash.
+- Returns `SafeUser { id, fullName, email, role, roleDisplayName, roles, permissions }` — permissions are loaded from the database and the password hash is never returned.
 
 ### 1.3 Two-step login (password + email OTP)
 
@@ -83,11 +83,11 @@
 
 ### 2.1 Authorization
 
-1. **Project-scoped authorization is not yet wired to feature routes.** `user_roles.projectId` remains available, but no backend project/document/phase routes currently exist to attach a membership guard.
-2. **Resource ownership and membership rules are not yet implemented.** The authorization layer still needs explicit checks for project membership, project-manager ownership, document ownership, document approver access, and access to project-related reports.
-3. **Global administrator and project-manager overrides are not yet represented as reusable guards.** These rules must be centralized instead of being repeated inside individual controllers.
-4. **Permission claims remain database-authoritative.** User/session responses and JWTs now carry all global roles while retaining the primary `role` compatibility field; permission checks still query the database so role changes take effect without waiting for token expiry.
-5. **Authorization decisions are not audited.** Role assignment/removal, denied access, project membership changes, document reviews, and privileged mutations are not yet recorded.
+1. **Project-scoped authorization is not yet wired to feature routes.** The reusable guards now exist, but no backend project/document/phase/report routes currently use them.
+2. **Resource ownership and membership enforcement is not yet active.** The policy and database relationships now support project membership, project-manager ownership, document ownership, approver access, and report access; controllers still need to call the guards.
+3. **Global administrator and project-manager overrides are now centralized.** `authorization.policy.ts` and `authorization.middleware.ts` define the reusable policy; route coverage remains outstanding.
+4. **Permission claims remain database-authoritative.** User/session responses include the current global permissions and all global roles while retaining the primary `role` compatibility field; backend permission checks still query the database so role changes take effect without waiting for token expiry.
+5. **Audit coverage is partial.** Denied global permission checks and admin user/role mutations are now recorded; project membership changes, document reviews, and feature mutations still need audit events.
 6. **Administrator bootstrap remains manual.** Public registration creates only Team Members. The first administrator must be created through a controlled SQL/bootstrap procedure before the admin endpoints can be used.
 
 ### 2.2 Authorization completion scope before Module 2
@@ -187,11 +187,11 @@ Before Module 2:
 ### 2.3 Validation, operations, and documentation
 
 8. **Validation is still hand-rolled and duplicated.** The existing `joi` dependency is unused, and frontend/backend password rules are not fully aligned.
-9. **No backend integration-test runner exists.** The auth-server currently validates through typecheck/build only.
-10. **No authentication audit trail or retention job.** Login, OTP, refresh, reset, and role changes are not written to `activity_log`; expired OTP and revoked refresh rows are not automatically cleaned up.
-11. **Legacy prototype remains in the tree.** `vite-2/src/assets/components/controllers/authController.js` still contains the retired MySQL auth flow and should be removed after import/build references are confirmed.
+9. **Authorization policy tests exist, but backend route integration coverage is still missing.** The auth-server now runs compiled policy tests; protected route tests still need a database-backed harness.
+10. **Authentication audit coverage and retention are incomplete.** Login, OTP, refresh, reset, membership changes, and feature mutations are not all written to `activity_log`; expired OTP and revoked refresh rows are not automatically cleaned up.
+11. **Legacy prototype removed.** The obsolete MySQL `vite-2` auth controller and router were deleted after confirming that the active frontend uses `auth-server/src/` and has no imports for those files.
 12. **API documentation is stale.** `PMS_APP_SPEC.md` still documents the old roles and `/api/login`-style paths; the new permission/admin endpoints and structured errors need to be documented.
-13. **Schema ownership is not fully unified.** The auth-server schema now includes permission primary-key and refresh `remember_me` changes, but broader project/activity-log tables and project foreign keys still differ between the two schema sources.
+13. **Schema ownership is now aligned for the authorization foundation, but the migration is not yet applied.** Both schema sources include project membership/report relationships; the deployment database still needs the new migration.
 
 ---
 
@@ -204,16 +204,20 @@ Before Module 2:
 5. Added protected password change with current-password verification and refresh-session revocation.
 6. Added multi-role user/session claims while retaining the primary role compatibility field.
 7. Added frontend session context, permission-aware route guards/navigation, structured auth API errors, and a protected administration route placeholder.
+8. Added Module 2 permission names for project creation, membership management, publishing, and reports.
+9. Added shared project/document authorization policy helpers and Express guards with UUID validation and non-leaking resource errors.
+10. Added project membership/report schema definitions and a migration, plus initial authorization policy tests.
+11. Added audit events for denied global permissions and privileged user/role mutations.
 
 ## 4. Recommended next steps
 
 1. Apply the two new Drizzle migrations in the deployment database and perform the documented manual administrator bootstrap.
-2. Complete the authorization scope in section 2.2, starting with centralized project/document guards.
-3. Add integration tests for the role/capability matrix and cross-project access denial.
-4. Mark authorization ready only after all section 2.2 acceptance criteria pass.
-5. Begin Module 2 API implementation using the completed guards.
-6. After authorization is complete, address optional authentication hardening: failed-password lockout, email verification, audit logging, retention cleanup, and immediate access-token invalidation if required by the deployment threat model.
-7. Remove the legacy MySQL controller and update `PMS_APP_SPEC.md` plus API documentation.
+2. Apply and verify the authorization foundation migration.
+3. Implement Module 2 controllers and routes using the centralized project/document guards.
+4. Add integration tests for the role/capability matrix and cross-project access denial.
+5. Mark authorization ready only after all section 2.2 acceptance criteria pass.
+6. After authorization is complete, address optional authentication hardening: failed-password lockout, email verification, retention cleanup, and immediate access-token invalidation if required by the deployment threat model.
+7. Update `PMS_APP_SPEC.md` plus API documentation.
 
 ---
 
