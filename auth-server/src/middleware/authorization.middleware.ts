@@ -17,6 +17,10 @@ const requireUser = (req: Request, res: Response): string | null => {
   return req.user.sub;
 };
 
+// Express 5 types req.params values as string | string[].
+const paramAsOptionalString = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value;
+
 const continueWithAudit = async (
   error: unknown,
   req: Request,
@@ -62,11 +66,11 @@ export const requireProjectAccess = (
   if (!userId) return;
 
   try {
-    const projectId = normalizeResourceId(req.params[parameter], 'project id');
+    const projectId = normalizeResourceId(paramAsOptionalString(req.params[parameter]), 'project id');
     await assertProjectAccess(userId, projectId, accessType);
     next();
   } catch (error) {
-    await continueWithAudit(error, req, userId, 'project', req.params[parameter], next);
+    await continueWithAudit(error, req, userId, 'project', paramAsOptionalString(req.params[parameter]), next);
   }
 };
 
@@ -76,11 +80,11 @@ export const requireProjectManager = (parameter = 'projectId'): RequestHandler =
     if (!userId) return;
 
     try {
-      const projectId = normalizeResourceId(req.params[parameter], 'project id');
+      const projectId = normalizeResourceId(paramAsOptionalString(req.params[parameter]), 'project id');
       await assertProjectManager(userId, projectId);
       next();
     } catch (error) {
-      await continueWithAudit(error, req, userId, 'project', req.params[parameter], next);
+      await continueWithAudit(error, req, userId, 'project', paramAsOptionalString(req.params[parameter]), next);
     }
   };
 
@@ -99,10 +103,10 @@ export const requireDocumentAccess = (
   if (!userId) return;
 
   try {
-    const documentId = normalizeResourceId(req.params[parameter], 'document id');
+    const documentId = normalizeResourceId(paramAsOptionalString(req.params[parameter]), 'document id');
     await assertDocumentAccess(userId, documentId, accessType);
     next();
   } catch (error) {
-    await continueWithAudit(error, req, userId, 'document', req.params[parameter], next);
+    await continueWithAudit(error, req, userId, 'document', paramAsOptionalString(req.params[parameter]), next);
   }
 };

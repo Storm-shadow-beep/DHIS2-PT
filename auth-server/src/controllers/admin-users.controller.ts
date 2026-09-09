@@ -2,6 +2,11 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
 import * as userManagementService from '../services/user-management.service';
 
+// Express 5 types req.params values as string | string[] (splat routes).
+// Our services expect a single string id, so take the first segment.
+const paramAsString = (value: string | string[] | undefined): string =>
+  Array.isArray(value) ? (value[0] ?? '') : (value ?? '');
+
 export const listUsers = asyncHandler(async (_req: Request, res: Response) => {
   const users = await userManagementService.listUsers();
   res.json({ users });
@@ -15,7 +20,7 @@ export const setUserActive = asyncHandler(async (req: Request, res: Response) =>
   }
 
   const user = await userManagementService.setUserActive(
-    req.params.userId,
+    paramAsString(req.params.userId),
     isActive,
     req.user!.sub,
   );
@@ -31,7 +36,7 @@ export const assignRole = asyncHandler(async (req: Request, res: Response) => {
   }
 
   const user = await userManagementService.assignGlobalRole(
-    req.params.userId,
+    paramAsString(req.params.userId),
     requestedRole,
     req.user!.sub,
   );
@@ -40,8 +45,8 @@ export const assignRole = asyncHandler(async (req: Request, res: Response) => {
 
 export const removeRole = asyncHandler(async (req: Request, res: Response) => {
   const user = await userManagementService.removeGlobalRole(
-    req.params.userId,
-    req.params.roleName,
+    paramAsString(req.params.userId),
+    paramAsString(req.params.roleName),
     req.user!.sub,
   );
   res.json({ message: 'Role removed', user });
