@@ -83,11 +83,101 @@
 
 ### 2.1 Authorization
 
-1. **Project-scoped authorization is not yet wired to feature routes.** `user_roles.projectId` remains available, but no backend project/document/phase routes currently exist to attach a membership guard. The next feature APIs must require explicit project membership, with the agreed global administrator/project-manager overrides.
-2. **Permission claims remain database-authoritative.** User/session responses and JWTs now carry all global roles while retaining the primary `role` compatibility field; permission checks still query the database so role changes take effect without waiting for token expiry.
-3. **Administrator bootstrap remains manual.** Public registration creates only Team Members. The first administrator must be created through a controlled SQL/bootstrap procedure before the admin endpoints can be used.
+1. **Project-scoped authorization is not yet wired to feature routes.** `user_roles.projectId` remains available, but no backend project/document/phase routes currently exist to attach a membership guard.
+2. **Resource ownership and membership rules are not yet implemented.** The authorization layer still needs explicit checks for project membership, project-manager ownership, document ownership, document approver access, and access to project-related reports.
+3. **Global administrator and project-manager overrides are not yet represented as reusable guards.** These rules must be centralized instead of being repeated inside individual controllers.
+4. **Permission claims remain database-authoritative.** User/session responses and JWTs now carry all global roles while retaining the primary `role` compatibility field; permission checks still query the database so role changes take effect without waiting for token expiry.
+5. **Authorization decisions are not audited.** Role assignment/removal, denied access, project membership changes, document reviews, and privileged mutations are not yet recorded.
+6. **Administrator bootstrap remains manual.** Public registration creates only Team Members. The first administrator must be created through a controlled SQL/bootstrap procedure before the admin endpoints can be used.
 
-### 2.2 Authentication hardening
+### 2.2 Authorization completion scope before Module 2
+
+The following work must be completed before implementing dashboard, project, and
+document business APIs. This is the authorization baseline for Module 2.
+
+#### A. Central authorization policy
+
+- Define one canonical policy for global roles and project-scoped roles.
+- Keep `administrator` as the global bypass for institutional resources.
+- Allow `project_manager` to manage only projects they own or are assigned to manage.
+- Allow `team_member` to access only projects where they have an active membership.
+- Allow `document_approver` to review only documents within projects they are authorized to access.
+- Keep permission names as the capability check and use role names only for policy exceptions.
+- Normalize all resource identifiers and reject malformed or cross-tenant identifiers with
+  consistent `401`, `403`, and `404` responses.
+
+#### B. Reusable backend guards
+
+Implement and reuse guards/services equivalent to:
+
+```text
+requireAuthenticatedUser
+requirePermission(permission)
+requireProjectAccess(projectId, accessType)
+requireProjectManager(projectId)
+requireProjectMember(projectId)
+requireDocumentAccess(documentId, accessType)
+```
+
+The project/document guards must:
+
+- Load the resource and its project from the database.
+- Confirm the user is active.
+- Apply the administrator bypass.
+- Check the required global permission.
+- Check project ownership or membership where applicable.
+- Avoid leaking whether an unauthorized resource exists.
+- Be usable by route handlers without duplicating SQL policy logic.
+
+#### C. Authorization rules by capability
+
+| Capability | Administrator | Project Manager | Team Member | Document Approver |
+|---|---:|---:|---:|---:|
+| List permitted projects | All | Assigned/owned | Member projects | Authorized projects |
+| Create project | Yes | Yes | No | No |
+| Edit project details | Yes | Owned/managed | No | No |
+| Assign project members | Yes | Owned/managed | No | No |
+| Configure phases | Yes | Owned/managed | No | No |
+| Publish project | Yes | Owned/managed | No | No |
+| View project documents | Yes | Authorized projects | Member projects | Authorized projects |
+| Upload own documents | Yes | Yes where authorized | Member projects | No |
+| Delete own documents | Yes | Yes where authorized | Own uploads only | No |
+| Review/approve documents | Yes | Only if separately granted | No | Authorized projects |
+| Submit reports | Yes | Owned/managed projects | According to policy | No |
+| Assign global roles | Yes | No | No | No |
+| Activate/deactivate users | Yes | No | No | No |
+
+These rules are the target policy and must be confirmed by tests before Module 2
+routes are considered ready.
+
+#### D. Authorization tests and acceptance criteria
+
+Before Module 2:
+
+- Every protected route rejects missing or invalid access tokens with `401`.
+- Every insufficient capability is rejected with `403`.
+- A user cannot access another user's project, document, phase, or report by changing
+  an ID in the request.
+- An administrator can access all institutional resources.
+- A project manager cannot manage another manager's project.
+- A team member can access only assigned projects and permitted document operations.
+- A document approver cannot mutate project configuration.
+- Removing a role or membership takes effect on the next authorization check.
+- Global role assignment remains unique and a user always retains at least one global role.
+- Authorization failures do not disclose resource details to unauthorized users.
+- The backend has integration coverage for each role/capability matrix row that applies
+  to the implemented routes.
+
+#### E. Authorization implementation order
+
+1. Add project, membership, phase, document, and report ownership relationships to the
+   PostgreSQL schema and migrations.
+2. Add centralized policy helpers and project/document guards.
+3. Add authorization integration tests using the existing seeded roles.
+4. Add the default administrator bootstrap procedure and verify the administrator path.
+5. Only then implement Module 2 controllers and routes using the guards.
+
+### 2.3 Authentication hardening
 
 4. **Access tokens survive logout, deactivation, and password change until expiry.** Refresh sessions are revoked immediately, but access-token denylisting or a shorter TTL/revocation version is still needed if immediate invalidation is required.
 5. **No failed-password lockout.** Login is rate-limited by request, but there is no per-account failed-password counter and lockout policy.
@@ -118,10 +208,12 @@
 ## 4. Recommended next steps
 
 1. Apply the two new Drizzle migrations in the deployment database and perform the documented manual administrator bootstrap.
-2. Add project-scoped guards when project, phase, and document backend routes are introduced.
-3. Add integration tests for authentication, multi-role sessions, and permission failures.
-4. Add failed-password lockout, email verification, audit logging, retention cleanup, and immediate access-token invalidation if required by the deployment threat model.
-5. Remove the legacy MySQL controller and update `PMS_APP_SPEC.md` plus API documentation.
+2. Complete the authorization scope in section 2.2, starting with centralized project/document guards.
+3. Add integration tests for the role/capability matrix and cross-project access denial.
+4. Mark authorization ready only after all section 2.2 acceptance criteria pass.
+5. Begin Module 2 API implementation using the completed guards.
+6. After authorization is complete, address optional authentication hardening: failed-password lockout, email verification, audit logging, retention cleanup, and immediate access-token invalidation if required by the deployment threat model.
+7. Remove the legacy MySQL controller and update `PMS_APP_SPEC.md` plus API documentation.
 
 ---
 
