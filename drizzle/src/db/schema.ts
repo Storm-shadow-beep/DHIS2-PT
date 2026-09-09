@@ -55,7 +55,7 @@ export const projects = pgTable('projects', {
   name: varchar('name', { length: 200 }).notNull(),
   description: text('description'),
   client: varchar('client', { length: 150 }),
-  projectManagerId: uuid('project_manager_id').references(() => users.id),
+  projectManagerId: uuid('project_manager').references(() => users.id),
   status: varchar('status', { length: 30 }).notNull().default('active'),
   currentPhase: varchar('current_phase', { length: 50 }),
   startDate: date('start_date'),
@@ -78,6 +78,23 @@ export const userRoles = pgTable(
     assignedBy: uuid('assigned_by').references(() => users.id),
   },
   (table) => [index('user_roles_user_project_idx').on(table.userId, table.projectId)],
+);
+
+export const projectMembers = pgTable(
+  'project_members',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    isActive: boolean('is_active').notNull().default(true),
+    assignedAt: timestamp('assigned_at', { withTimezone: true }).notNull().defaultNow(),
+    assignedBy: uuid('assigned_by').references(() => users.id),
+    removedAt: timestamp('removed_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('project_members_project_user_idx').on(table.projectId, table.userId),
+    index('project_members_user_active_idx').on(table.userId, table.isActive),
+  ],
 );
 
 export const projectPhases = pgTable(
@@ -144,6 +161,16 @@ export const activityLog = pgTable('activity_log', {
   entityId: uuid('entity_id'),
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const projectReports = pgTable('project_reports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  submittedBy: uuid('submitted_by').notNull().references(() => users.id),
+  title: varchar('title', { length: 200 }).notNull(),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const refreshTokens = pgTable(
