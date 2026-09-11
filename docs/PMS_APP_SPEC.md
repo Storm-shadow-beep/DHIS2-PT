@@ -15,6 +15,32 @@ This is a React + Vite TypeScript application for a project management system fo
 
 The app currently behaves like a working prototype, not a fully server-backed multi-user system.
 
+## Active backend contract — Module 2
+
+The active backend is `auth-server`, not the legacy prototype server described
+by older sections of this document. Project Management endpoints use UUIDs,
+bearer access tokens, database-backed permissions, and project-scoped guards.
+
+| Method | Endpoint | Access |
+| --- | --- | --- |
+| `GET` | `/api/projects` | Authenticated users with `project:view`; returns permitted projects |
+| `POST` | `/api/projects` | `project:create`; creates a project owned by the authenticated manager unless an administrator assigns another manager |
+| `GET` | `/api/projects/:projectId` | `project:view` plus access to the project |
+| `PATCH` | `/api/projects/:projectId` | `project:manage` plus project-manager access |
+| `GET` | `/api/projects/:projectId/members` | `project:view` plus access to the project |
+| `PUT` | `/api/projects/:projectId/members` | `project:member:manage` plus project-manager access |
+
+Project creation and updates support `name`, `description`, `client`,
+`projectManagerId`, `status` (`active`, `completed`, or `on-hold`),
+`currentPhase`, ISO dates, and `driveFolderId`. Membership replacement accepts
+`{ "userIds": ["<uuid>"] }`. The backend validates UUIDs and dates, rejects
+inactive members, retains removed memberships as history, and records project
+and membership mutations in the activity log.
+
+The phase configuration, document, report, and Google Drive endpoints described
+elsewhere remain separate follow-on modules and are not part of the current
+Project Management route set.
+
 ## 2. Core routes and page structure
 
 The main router is defined in `src/App.tsx`.
