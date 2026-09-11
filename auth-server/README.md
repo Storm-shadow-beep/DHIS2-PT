@@ -18,18 +18,30 @@ backend/
     │   ├── index.ts             # PostgreSQL pool and Drizzle client
     │   └── schema.ts            # auth and refresh-token tables
     ├── controllers/
-    │   └── auth.controller.ts
+    │   ├── auth.controller.ts
+    │   ├── admin-users.controller.ts   # /api/admin user list/status/roles
+    │   ├── projects.controller.ts      # /api/projects + /api/users
+    │   └── project-members.controller.ts
     ├── routes/
-    │   └── auth.routes.ts    # /api/auth
+    │   ├── auth.routes.ts    # /api/auth
+    │   ├── admin.routes.ts   # /api/admin (protect + requirePermission)
+    │   ├── project.routes.ts # /api/projects (permission + project guards)
+    │   └── project-users.routes.ts # /api/users (assignable users)
     ├── middleware/
     │   ├── auth.middleware.ts      # protect (JWT verify -> req.user)
-    │   ├── authorize.middleware.ts # RBAC: Admin, Project Manager, Team Member, Client
+    │   ├── authorize.middleware.ts # RBAC compat + re-exports guards
+    │   ├── permission.middleware.ts # requirePermission (DB-backed global check)
+    │   ├── authorization.middleware.ts # requireProjectAccess/Manager/Member, requireDocumentAccess
     │   └── error.middleware.ts
     ├── services/
     │   ├── auth.service.ts
     │   ├── email.service.ts
     │   ├── otp.service.ts
-    │   └── token.service.ts
+    │   ├── token.service.ts
+    │   ├── authorization.service.ts  # DB-backed assertions, UUID normalize, 404-masking
+    │   ├── authorization.policy.ts   # pure canAccessProject / canAccessDocument
+    │   ├── user-management.service.ts
+    │   └── audit.service.ts          # authorization.denied + admin mutation events
     ├── types/
     │   ├── auth.types.ts     # Role, User, JwtPayload
     │   └── express.d.ts      # augments Express.Request.user
@@ -55,9 +67,25 @@ Public registration creates a `Team Member` account. Privileged role assignment 
 | POST | /api/auth/logout | public with refresh cookie |
 | POST | /api/auth/forgot-password | public |
 | POST | /api/auth/reset-password | public |
+| POST | /api/auth/change-password | private (`protect`) |
 | GET | /api/auth/me | private |
 | POST | /api/auth/register | public; creates Team Member |
 | GET | /api/health | public |
+| GET | /api/admin/users | private; `user:manage` |
+| PATCH | /api/admin/users/:userId/status | private; `user:manage` |
+| POST | /api/admin/users/:userId/roles | private; `role:manage` |
+| DELETE | /api/admin/users/:userId/roles/:roleName | private; `role:manage` |
+| GET | /api/projects | private; `project:view` (permitted projects only) |
+| POST | /api/projects | private; `project:create` |
+| GET | /api/projects/:projectId | private; `project:view` + project access |
+| PATCH | /api/projects/:projectId | private; `project:manage` + project-manager access |
+| GET | /api/projects/:projectId/members | private; `project:view` + project access |
+| PUT | /api/projects/:projectId/members | private; `project:member:manage` + project-manager access |
+| GET | /api/users | private; `project:manage` (assignable users) |
+
+Document/phase/publish/report routes are not yet implemented — policy helpers
+(`canAccessDocument`, `requireDocumentAccess`) exist but have no routes.
+See `../docs/AUTHENTICATION_AUTHORIZATION_CURRENT.md §3`.
 
 ## Token model
 

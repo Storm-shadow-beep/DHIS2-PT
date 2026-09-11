@@ -33,6 +33,14 @@ Create or obtain a PostgreSQL database, then make sure the auth service schema
 has been applied. The repository currently provides the Drizzle schema
 definitions but does not include a migration command in the root project.
 
+Apply the migrations in `drizzle/drizzle/` to the target database in
+filename order — including `20260909103000_authorization_foundation` and
+`20260911100000_project_membership_constraints` — before relying on the
+project/authorization routes. Then verify tables, permissions, and role
+grants. The first administrator must be bootstrapped via controlled SQL
+(public registration creates Team Member accounts only); see
+`AUTHENTICATION_AUTHORIZATION_CURRENT.md §5` for the procedure.
+
 The connection string should have this form:
 
 ```text
@@ -179,3 +187,14 @@ npm run lint       # lint source files
   described above, then restart the auth service after changing `.env`.
 - **Port already in use:** change `PORT` in `auth-server/.env` and update the
   frontend proxy target in `vite-2/vite.config.ts` to match.
+- **API returns `401`:** missing/expired/invalid access token — sign in again
+  via `POST /api/auth/login` → `POST /api/auth/verify-otp`. See
+  `AUTHENTICATION_AUTHORIZATION_CURRENT.md §2`.
+- **API returns `403`/`404` on a project/document route:** insufficient
+  capability (`403` global) or non-leaking `404` for out-of-scope resources —
+  check global permissions, project membership/manager assignment, and that
+  the authorization migrations were applied. See
+  `AUTHENTICATION_AUTHORIZATION_CURRENT.md §3`.
+- **Active endpoint reference:** `PMS_APP_SPEC.md §15`
+  (`/api/auth/*`, `/api/admin/*`, `/api/projects`, `/api/users`); document /
+  phase / report / Drive endpoints are not yet implemented.

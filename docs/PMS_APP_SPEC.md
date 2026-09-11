@@ -1,5 +1,12 @@
 # PMS Application Specification and Feature Guide
 
+> **Reading guide (2026-09-11):** §§2–14 below describe the original
+> frontend-only prototype (legacy). The active backend contract is
+> **§15 Active backend contract** plus the **Active backend contract —
+> Module 2** box in §1. Prototype paths such as `POST /api/login`,
+> numeric user ids, and `System Analyst` roles are superseded — see §15.
+> Consolidated auth state: `AUTHENTICATION_AUTHORIZATION_CURRENT.md`.
+
 This document is intended as a working blueprint for the current front-end application so the backend can be connected later without losing the original product intent.
 
 ## 1. Project overview
@@ -97,7 +104,12 @@ Important API calls:
 - `fetch('/api/me', { credentials: 'include' })` → fetches current user
 - `fetch('/api/logout', { method: 'POST', credentials: 'include' })` → logs user out
 
-## 4. Authentication: login page
+## 4. Authentication: login page (LEGACY prototype — superseded by §15)
+
+> Legacy: single-step `POST /api/login`, 6-char password, `UserSession{id:number}`.
+> Active: two-step password + email OTP via `POST /api/auth/login` →
+> `POST /api/auth/verify-otp`, 8-char letters+numbers policy,
+> `SafeUser{id:uuid, ...}`. See §15.
 
 Files:
 - `src/assets/components/Login/LoginPage.tsx`
@@ -157,7 +169,13 @@ API endpoints used:
   - returns `{ user: UserSession }`
 - `POST /api/logout`
 
-## 5. Registration page
+## 5. Registration page (LEGACY prototype — superseded by §15)
+
+> Legacy: role picker `System Analyst / Project Manager / Developer / Administrator`
+> with `POST /api/register {role,...}`. Active: public registration creates
+> **Team Member only** via `POST /api/auth/register
+> {fullName,email,password,confirmPassword}` (no role field). Privileged roles
+> are assigned via `/api/admin`. See §15.
 
 File:
 - `src/assets/components/Registration/Registration.tsx`
@@ -510,7 +528,12 @@ The preview area includes:
 
 Current setup is a placeholder link; a real backend file storage system should replace this.
 
-## 9. Data variables and their intended meaning
+## 9. Data variables and their intended meaning (LEGACY prototype — see §15 for active types)
+
+> Legacy numeric `id` and `System Analyst` role labels below are superseded.
+> Active: UUID user/project ids, canonical roles
+> `administrator / project_manager / team_member / document_approver`, and
+> `SafeUser` with server-provided `roles[]`/`permissions[]`. See §15.
 
 ### Authentication/user variables
 
@@ -554,7 +577,7 @@ Current setup is a placeholder link; a real backend file storage system should r
 - `size` → string format like `3.2 MB`
 - `downloadUrl` → current placeholder download endpoint
 
-## 10. Current persistence strategy
+## 10. Current persistence strategy (LEGACY prototype note — backend now exists, see §15)
 
 Because the app is still front-end-first, data is stored in browser localStorage rather than a production database.
 
@@ -564,7 +587,12 @@ Current storage keys:
 
 This means the app is currently a prototype without robust multi-user persistence. Later, backend implementations should replace these localStorage writes with database-backed CRUD operations.
 
-## 11. Backend mapping recommendations
+## 11. Backend mapping recommendations (LEGACY prototype wishlist — active contract is §15)
+
+> The entity/endpoint sketches below predate `auth-server`. For the implemented
+> contract (PostgreSQL + Drizzle, `/api/auth/*`, `/api/admin/*`,
+> `/api/projects`, `/api/users`) see §15 and
+> `AUTHENTICATION_AUTHORIZATION_CURRENT.md`.
 
 ### Recommended entities
 
@@ -631,7 +659,7 @@ This means the app is currently a prototype without robust multi-user persistenc
 - all other users may still read or download it
 - project-level access should be limited by institutional scope or role permissions
 
-## 12. Current app limitations to note
+## 12. Current app limitations to note (LEGACY prototype snapshot — partially resolved, see §15)
 
 - There is no real backend database yet
 - User sessions are simulated through cookie/session-like behavior in the mock flow
@@ -662,3 +690,69 @@ This app currently presents a polished front-end prototype of an institutional p
 - responsive shell layout and fixed sidebar navigation
 
 The frontend is ready for a backend to be attached, and the main responsibilities for the backend are clear from the data contracts and UI logic documented here.
+
+## 15. Active backend contract (verified 2026-09-11 — supersedes §§4–5/9–13 prototype sketches)
+
+Source: `auth-server/src/**`. Full matrix: `docs/AUTHENTICATION_AUTHORIZATION_CURRENT.md`.
+
+### 15.1 Auth (`/api/auth/*`)
+
+| Method | Endpoint | Access |
+|---|---|---|
+| `POST` | `/api/auth/register` | public; creates **Team Member only** `{fullName,email,password,confirmPassword}` |
+| `POST` | `/api/auth/login` | public; verifies password → returns OTP `challengeId/expiresAt/resendAvailableAt` (no tokens) |
+| `POST` | `/api/auth/verify-otp` | public; `{challengeId, code, rememberMe}` → `{user, accessToken}`, sets httpOnly refresh cookie |
+| `POST` | `/api/auth/resend-otp` | public; `{challengeId}`, cooldown-gated |
+| `POST` | `/api/auth/refresh` | httpOnly refresh cookie; rotates within same token family |
+| `POST` | `/api/auth/logout` | public with refresh cookie; revokes `jti`, clears cookie |
+| `POST` | `/api/auth/forgot-password` | public; generic response `{email}` |
+| `POST` | `/api/auth/reset-password` | public; `{token, newPassword}` single-use |
+| `POST` | `/api/auth/change-password` | `protect`; `{currentPassword, newPassword}`, revokes sessions |
+| `GET` | `/api/auth/me` | `protect`; reloads active user from DB |
+
+Password policy (backend + registration page): min 8 chars, letters + numbers, `confirmPassword` match. OTP: 6-digit, 10 min expiry, 5 attempts, 60 s resend cooldown, 5 sends/15 min per email and per IP.
+
+### 15.2 Canonical identity
+
+```ts
+interface SafeUser {
+  id: string; // UUID
+  fullName: string;
+  email: string;
+  role: 'administrator' | 'project_manager' | 'team_member' | 'document_approver';
+  roleDisplayName: string;
+  roles: RoleName[];
+  permissions: string[]; // server-provided, UX-only; backend re-checks DB per request
+}
+```
+
+JWT claims: `sub, email, role, roles, fullName, jti, familyId, tokenType: access|refresh`, `issuer dhis2-pt-auth`, `audience dhis2-pt`. Access 15 m; refresh 7 d (30 d `rememberMe`).
+
+### 15.3 Admin (`/api/admin/*`, `protect` + `requirePermission`)
+
+| Method | Endpoint | Permission |
+|---|---|---|
+| `GET` | `/api/admin/users` | `user:manage` |
+| `PATCH` | `/api/admin/users/:userId/status` | `user:manage` |
+| `POST` | `/api/admin/users/:userId/roles` | `role:manage` |
+| `DELETE` | `/api/admin/users/:userId/roles/:roleName` | `role:manage` |
+
+First administrator is bootstrapped via controlled SQL (registration cannot create one) — see `AUTHENTICATION_AUTHORIZATION_CURRENT.md §5`.
+
+### 15.4 Projects (`/api/projects`, `/api/users`)
+
+| Method | Endpoint | Guard |
+|---|---|---|
+| `GET` | `/api/projects` | `requirePermission('project:view')`; returns permitted projects |
+| `POST` | `/api/projects` | `requirePermission('project:create')` |
+| `GET` | `/api/projects/:projectId` | `project:view` + `requireProjectAccess('view')` |
+| `PATCH` | `/api/projects/:projectId` | `project:manage` + `requireProjectManager()` |
+| `GET` | `/api/projects/:projectId/members` | `project:view` + `requireProjectAccess('view')` |
+| `PUT` | `/api/projects/:projectId/members` | `project:member:manage` + `requireProjectManager()` |
+| `GET` | `/api/users` | `project:manage` (assignable users) |
+
+Errors: missing/invalid token → `401`; insufficient capability → `403` (global) or non-leaking `404` (project/document scope); malformed UUID → `400 INVALID_RESOURCE_ID`; OTP rate limits → `429 + Retry-After`.
+
+### 15.5 Not yet implemented (policy exists, routes pending)
+
+Document upload/list/version/delete/approve, phase configuration, project publish, and report endpoints have centralized policy types (`phaseManage`, `publish`, `reportView/Create`, `requireDocumentAccess`) but no routes in `auth-server/src/routes/`. Phase/document/report sketches in §§7–8/11 remain targets, not contracts.

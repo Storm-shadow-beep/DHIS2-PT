@@ -1,5 +1,10 @@
 # Authentication and Authorization Progress
 
+> **Superseded as of 2026-09-11 by `AUTHENTICATION_AUTHORIZATION_CURRENT.md`.**
+> Retained as history. Key update: project controllers/routes are now
+> implemented and guarded (`auth-server/src/routes/project.routes.ts`);
+> document/phase/report routes remain open. See CURRENT doc §3.
+
 **Last updated:** 2026-09-09  
 **Project:** DHIS2-PT  
 **Current milestone:** Authentication and authorization foundation  

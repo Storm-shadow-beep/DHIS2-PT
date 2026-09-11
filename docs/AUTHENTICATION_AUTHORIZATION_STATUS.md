@@ -1,5 +1,9 @@
 # Authentication & Authorization — Implementation Status
 
+> **Superseded as of 2026-09-11 by `AUTHENTICATION_AUTHORIZATION_CURRENT.md`.**
+> Retained as history. Key update: project routes are now wired
+> (`auth-server/src/routes/project.routes.ts`); see CURRENT doc §3.
+
 **Date:** 2026-09-07
 **Scope:** `auth-server/src/**` (Express + TypeScript + Drizzle + PostgreSQL) and `vite-2/src/**/services/authApi.ts`, `App.tsx`, `LoginPage.tsx`, `Registration.tsx`
 **Entry point reviewed:** `auth-server/src/routes/auth.routes.ts`
