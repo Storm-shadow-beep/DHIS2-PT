@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as projectController from '../controllers/projects.controller';
 import * as projectMembersController from '../controllers/project-members.controller';
+import * as phasesController from '../controllers/phases.controller';
 import { requireAuthenticatedUser } from '../middleware/auth.middleware';
 import {
   requirePermission,
@@ -39,6 +40,32 @@ router.put(
   requirePermission('project:member:manage'),
   requireProjectManager(),
   projectMembersController.replaceMembers,
+);
+
+// Phase Engine (Module 3): reads are project-visible, writes are PM-managed.
+router.get(
+  '/:projectId/phases',
+  requirePermission('project:view'),
+  requireProjectAccess('view'),
+  phasesController.listPhases,
+);
+router.get(
+  '/:projectId/phases/current',
+  requirePermission('project:view'),
+  requireProjectAccess('view'),
+  phasesController.getCurrentPhase,
+);
+router.post(
+  '/:projectId/phases/ensure',
+  requirePermission('phase:manage'),
+  requireProjectAccess('phaseManage'),
+  phasesController.ensurePhases,
+);
+router.patch(
+  '/:projectId/phases/:phaseId',
+  requirePermission('phase:manage'),
+  requireProjectAccess('phaseManage'),
+  phasesController.updatePhase,
 );
 
 export default router;

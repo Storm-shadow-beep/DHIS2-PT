@@ -2,12 +2,14 @@ import { and, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { db } from '../db';
 import {
   projectMembers,
+  projectPhases,
   projects,
   roles,
   userRoles,
   users,
   type Project,
 } from '../db/schema';
+import { buildPhaseSeedRows, STANDARD_PHASES } from './phase.constants';
 import { ROLE_NAMES } from '../types/auth.types';
 import { recordAudit } from './audit.service';
 
@@ -443,7 +445,7 @@ export const createProject = async (
         client: input.client ?? null,
         projectManagerId: managerId,
         status: input.status ?? 'active',
-        currentPhase: input.currentPhase ?? null,
+        currentPhase: input.currentPhase ?? STANDARD_PHASES[0].displayName,
         startDate: input.startDate ?? null,
         expectedEndDate: input.expectedEndDate ?? null,
         actualEndDate: input.actualEndDate ?? null,
@@ -457,6 +459,11 @@ export const createProject = async (
         memberIds.map((userId) => ({ projectId: created.id, userId, assignedBy: actorId })),
       );
     }
+
+    // Phase Engine (Module 3): every new project starts with the 7
+    // standard phases; sequence 1 is current, the rest are not_started.
+    await tx.insert(projectPhases).values(buildPhaseSeedRows(created.id));
+
     return created;
   });
 
@@ -466,6 +473,13 @@ export const createProject = async (
     entityType: 'project',
     entityId: project.id,
     metadata: { projectManagerId: managerId, memberIds },
+  });
+  await recordAudit({
+    userId: actorId,
+    action: 'phase.generated',
+    entityType: 'project',
+    entityId: project.id,
+    metadata: { count: STANDARD_PHASES.length, backfill: false },
   });
   return getProject(project.id);
 };

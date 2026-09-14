@@ -8,13 +8,13 @@ html, body, #root {
 
 body {
   margin: 0;
-  overflow: hidden;
 }
 
 .dashboard-layout {
   display: flex;
   height: 100vh;
   width: 100%;
+  overflow: hidden;
   background-color: #f8fafc;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -29,7 +29,8 @@ body {
   padding: 24px 16px;
   box-sizing: border-box;
   flex-shrink: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .sidebar-brand {

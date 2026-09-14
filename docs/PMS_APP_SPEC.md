@@ -44,7 +44,8 @@ Project creation and updates support `name`, `description`, `client`,
 inactive members, retains removed memberships as history, and records project
 and membership mutations in the activity log.
 
-The phase configuration, document, report, and Google Drive endpoints described
+The phase configuration endpoints are implemented (Module 3, see §15.4);
+the document, report, and Google Drive endpoints described
 elsewhere remain separate follow-on modules and are not part of the current
 Project Management route set.
 
@@ -739,20 +740,34 @@ JWT claims: `sub, email, role, roles, fullName, jti, familyId, tokenType: access
 
 First administrator is bootstrapped via controlled SQL (registration cannot create one) — see `AUTHENTICATION_AUTHORIZATION_CURRENT.md §5`.
 
-### 15.4 Projects (`/api/projects`, `/api/users`)
+### 15.4 Projects (`/api/projects`, `/api/users`) and phases (Module 3)
 
 | Method | Endpoint | Guard |
 |---|---|---|
 | `GET` | `/api/projects` | `requirePermission('project:view')`; returns permitted projects |
-| `POST` | `/api/projects` | `requirePermission('project:create')` |
+| `POST` | `/api/projects` | `requirePermission('project:create')`; auto-generates the 7 standard phases |
 | `GET` | `/api/projects/:projectId` | `project:view` + `requireProjectAccess('view')` |
 | `PATCH` | `/api/projects/:projectId` | `project:manage` + `requireProjectManager()` |
 | `GET` | `/api/projects/:projectId/members` | `project:view` + `requireProjectAccess('view')` |
 | `PUT` | `/api/projects/:projectId/members` | `project:member:manage` + `requireProjectManager()` |
 | `GET` | `/api/users` | `project:manage` (assignable users) |
+| `GET` | `/api/projects/:projectId/phases` | `project:view` + `requireProjectAccess('view')` (ordered by sequence) |
+| `GET` | `/api/projects/:projectId/phases/current` | `project:view` + `requireProjectAccess('view')` |
+| `POST` | `/api/projects/:projectId/phases/ensure` | `phase:manage` + `requireProjectAccess('phaseManage')`; idempotent backfill (`201` generated / `200` already initialized) |
+| `PATCH` | `/api/projects/:projectId/phases/:phaseId` | `phase:manage` + `requireProjectAccess('phaseManage')`; body `{ action: 'complete' \| 'reopen' }` |
+
+Phase Engine rules: 7 standard phases (Initiation → Requirements Analysis →
+System Design → Development → Testing & UAT → Deployment → Closure);
+sequence 1 starts `current`. Only the `current` phase can be completed
+(`409 INVALID_PHASE_TRANSITION` otherwise); completing a phase promotes the
+next sequence to `current` and syncs `projects.currentPhase`. Only the most
+recently completed phase can be reopened. Completing the final phase leaves
+`currentPhase` at `Closure` with no `current` row. Errors follow Module 2
+conventions: malformed UUID → `400 INVALID_RESOURCE_ID`; uninitialized
+phases → `404 PHASES_NOT_INITIALIZED`; unknown phase → `404 PHASE_NOT_FOUND`.
 
 Errors: missing/invalid token → `401`; insufficient capability → `403` (global) or non-leaking `404` (project/document scope); malformed UUID → `400 INVALID_RESOURCE_ID`; OTP rate limits → `429 + Retry-After`.
 
 ### 15.5 Not yet implemented (policy exists, routes pending)
 
-Document upload/list/version/delete/approve, phase configuration, project publish, and report endpoints have centralized policy types (`phaseManage`, `publish`, `reportView/Create`, `requireDocumentAccess`) but no routes in `auth-server/src/routes/`. Phase/document/report sketches in §§7–8/11 remain targets, not contracts.
+Document upload/list/version/delete/approve, project publish, and report endpoints have centralized policy types (`publish`, `reportView/Create`, `requireDocumentAccess`) but no routes in `auth-server/src/routes/`. Phase configuration (Module 3) is implemented — see §15.4. Document/report sketches in §§7–8/11 remain targets, not contracts.

@@ -1,6 +1,6 @@
 # Authentication & Authorization — Current State
 
-**Last verified:** 2026-09-11 against `auth-server/src/**` (Express + TypeScript + Drizzle + PostgreSQL)
+**Last verified:** 2026-09-14 against `auth-server/src/**` (Express + TypeScript + Drizzle + PostgreSQL)
 **Supersedes:** `AUTHENTICATION_AUTHORIZATION_STATUS.md` (2026-09-07) and `AUTHORIZATION_PROGRESS.md` (2026-09-09), retained as historical appendices — see Appendix A.
 **Scope:** `auth-server/src/routes/*.routes.ts`, `controllers/*`, `services/auth.service.ts`, `token.service.ts`, `otp.service.ts`, `authorization.service.ts`, `authorization.policy.ts`, `middleware/*`, `types/auth.types.ts`, `test/authorization.policy.test.js`.
 
@@ -76,10 +76,20 @@ Route coverage (verified 2026-09-11):
 | `GET /api/projects/:projectId`, `GET /:projectId/members` | `routes/project.routes.ts:18-36` (`requirePermission(project:view)` + `requireProjectAccess(view)`) | ✅ wired — **new since 2026-09-07 docs** |
 | `PATCH /api/projects/:projectId`, `PUT /:projectId/members` | `routes/project.routes.ts:24-42` (`requirePermission(project:manage / project:member:manage)` + `requireProjectManager()`) | ✅ wired — **new since 2026-09-07 docs** |
 | `GET /api/users` (assignable) | `routes/project-users.routes.ts:8` (`requirePermission(project:manage)`) | ✅ wired |
+| `GET /:projectId/phases`, `GET /:projectId/phases/current` | `routes/project.routes.ts` (`requirePermission(project:view)` + `requireProjectAccess(view)`) | ✅ wired — **Phase Engine (Module 3)** |
+| `POST /:projectId/phases/ensure`, `PATCH /:projectId/phases/:phaseId` | `routes/project.routes.ts` (`requirePermission(phase:manage)` + `requireProjectAccess(phaseManage)`) | ✅ wired — **Phase Engine (Module 3)** |
 | Document upload/list/version/delete/approve | no `document.routes.ts` in `src/routes/` | ❌ guards exist (`requireDocumentAccess`), no routes yet |
-| Phase config / publish, reports | no phase/report routes in `src/routes/` | ❌ policy types exist (`phaseManage`, `publish`, `reportView/Create`), no routes yet |
+| Publish, reports | no publish/report routes in `src/routes/` | ❌ policy types exist (`publish`, `reportView/Create`), no routes yet |
 
-Tests: `test/authorization.policy.test.js` covers administrator bypass, manager scope, member restrictions, document-delete ownership (4 tests, run via `npm test` after `npm run build`). No DB-backed route integration tests yet.
+Phase Engine notes: `POST /api/projects` auto-generates the 7 standard phases
+(`services/phase.constants.ts: STANDARD_PHASES`, pure transition helpers
+`resolveCompletion`/`resolveReopen`); completion is linear (only `current`
+completes, only most-recently-completed reopens); `projects.currentPhase`
+syncs on generate/complete/reopen; `POST .../phases/ensure` backfills
+pre-Phase-Engine projects idempotently; `phase.generated/completed/reopened`
+audit events recorded.
+
+Tests: `test/authorization.policy.test.js` covers administrator bypass, manager scope, member restrictions, document-delete ownership, phase-manage gating; `test/phase.transitions.test.js` covers seed order, linear completion, final-phase completion, reopen rules (8 tests total, run via `npm test`). No DB-backed route integration tests yet.
 
 ---
 

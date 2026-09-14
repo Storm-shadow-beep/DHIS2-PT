@@ -51,12 +51,22 @@ test('project managers can manage only projects they manage', () => {
   assert.equal(canAccessProject(managerContext, 'manage'), true);
   assert.equal(canAccessProject({ ...managerContext, isProjectManager: false }, 'manage'), false);
   assert.equal(canAccessProject(managerContext, 'publish'), true);
+  assert.equal(canAccessProject(managerContext, 'phaseManage'), true);
+  assert.equal(canAccessProject({ ...managerContext, isProjectManager: false }, 'phaseManage'), false);
+  assert.equal(
+    canAccessProject(
+      { ...managerContext, permissions: managerContext.permissions.filter((p) => p !== 'phase:manage') },
+      'phaseManage',
+    ),
+    false,
+  );
 });
 
 test('members can view and contribute without managing project configuration', () => {
   assert.equal(canAccessProject(memberContext, 'view'), true);
   assert.equal(canAccessProject(memberContext, 'member'), true);
   assert.equal(canAccessProject(memberContext, 'manage'), false);
+  assert.equal(canAccessProject(memberContext, 'phaseManage'), false);
   assert.equal(canAccessProject({ ...memberContext, isActiveMember: false }, 'view'), false);
 });
 

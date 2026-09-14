@@ -21,11 +21,12 @@ backend/
     │   ├── auth.controller.ts
     │   ├── admin-users.controller.ts   # /api/admin user list/status/roles
     │   ├── projects.controller.ts      # /api/projects + /api/users
-    │   └── project-members.controller.ts
+    │   ├── project-members.controller.ts
+    │   └── phases.controller.ts        # /api/projects/:projectId/phases (Module 3)
     ├── routes/
     │   ├── auth.routes.ts    # /api/auth
     │   ├── admin.routes.ts   # /api/admin (protect + requirePermission)
-    │   ├── project.routes.ts # /api/projects (permission + project guards)
+    │   ├── project.routes.ts # /api/projects (permission + project guards, incl. phases)
     │   └── project-users.routes.ts # /api/users (assignable users)
     ├── middleware/
     │   ├── auth.middleware.ts      # protect (JWT verify -> req.user)
@@ -40,6 +41,9 @@ backend/
     │   ├── token.service.ts
     │   ├── authorization.service.ts  # DB-backed assertions, UUID normalize, 404-masking
     │   ├── authorization.policy.ts   # pure canAccessProject / canAccessDocument
+    │   ├── project.service.ts        # projects + auto-generates 7 phases on create (Module 3)
+    │   ├── phase.service.ts          # Phase Engine: list/ensure/complete/reopen (Module 3)
+    │   ├── phase.constants.ts        # canonical 7 phases + pure transition rules (no db)
     │   ├── user-management.service.ts
     │   └── audit.service.ts          # authorization.denied + admin mutation events
     ├── types/
@@ -82,8 +86,18 @@ Public registration creates a `Team Member` account. Privileged role assignment 
 | GET | /api/projects/:projectId/members | private; `project:view` + project access |
 | PUT | /api/projects/:projectId/members | private; `project:member:manage` + project-manager access |
 | GET | /api/users | private; `project:manage` (assignable users) |
+| GET | /api/projects/:projectId/phases | private; `project:view` + project access |
+| GET | /api/projects/:projectId/phases/current | private; `project:view` + project access |
+| POST | /api/projects/:projectId/phases/ensure | private; `phase:manage` + project-manager access (backfills 7 phases for pre-Phase-Engine projects) |
+| PATCH | /api/projects/:projectId/phases/:phaseId | private; `phase:manage` + project-manager access; `{ action: 'complete' \| 'reopen' }` |
 
-Document/phase/publish/report routes are not yet implemented — policy helpers
+New projects auto-generate the 7 standard phases
+(Initiation → Requirements Analysis → System Design → Development →
+Testing & UAT → Deployment → Closure); sequence 1 starts `current`.
+Completion is linear: only the `current` phase can be completed, and only
+the most recently completed phase can be reopened.
+
+Document/publish/report routes are not yet implemented — policy helpers
 (`canAccessDocument`, `requireDocumentAccess`) exist but have no routes.
 See `../docs/AUTHENTICATION_AUTHORIZATION_CURRENT.md §3`.
 
