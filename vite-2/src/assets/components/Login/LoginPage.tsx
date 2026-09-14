@@ -125,7 +125,7 @@ export const LoginPage: React.FC = () => {
     const timer = window.setInterval(updateLockoutCountdown, 1000);
     return () => window.clearInterval(timer);
     // clearLockout intentionally inlined here to keep this effect dependent only on lockoutUntil.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    /// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lockoutUntil]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
