@@ -10,10 +10,25 @@ export interface ApiProject {
 }
 
 export interface ApiPhase {
-  id: number;
+  id: string;
+  projectId: string;
   name: string;
-  requiredDocuments: number;
-  mandatoryDocuments: number;
+  displayName: string;
+  sequence: number;
+  status: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface ApiRequirement {
+  id: string;
+  phaseId: string;
+  name: string;
+  isMandatory: boolean;
+  sortOrder: number;
+  documentCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ApiReport {
@@ -33,11 +48,17 @@ const request = async <T>(url: string, options?: RequestInit): Promise<T> => {
 
 export const getProjectsApi = () => request<{ projects: ApiProject[] }>('/api/projects');
 export const getUsersApi = () => request<{ users: { id: string | number; fullName: string; email: string; role: string }[] }>('/api/users');
+export const getProjectApi = (id: string | number) => request<{ project: ApiProject }>(`/api/projects/${id}`);
+export const getProjectMembersApi = (id: string | number) => request<{ members: unknown[] }>(`/api/projects/${id}/members`);
 export const getProjectPhasesApi = (id: string | number) => request<{ phases: ApiPhase[] }>(`/api/projects/${id}/phases`);
-export const updatePhaseRequirementsApi = (projectId: string | number, phaseId: number, requiredDocuments: number) => request<{ message: string }>(`/api/projects/${projectId}/phases/${phaseId}`, {
+export const getCurrentProjectPhaseApi = (id: string | number) => request<{ phase: ApiPhase | null }>(`/api/projects/${id}/phases/current`);
+export const ensureProjectPhasesApi = (id: string | number) => request<{ phases: ApiPhase[]; generated: boolean }>(`/api/projects/${id}/phases/ensure`, {
+  method: 'POST',
+});
+export const updateProjectPhaseApi = (projectId: string | number, phaseId: string, action: 'complete' | 'reopen') => request<{ message: string; phases: ApiPhase[] }>(`/api/projects/${projectId}/phases/${phaseId}`, {
   method: 'PATCH',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ requiredDocuments }),
+  body: JSON.stringify({ action }),
 });
 export const createProjectApi = (name: string, description: string, memberIds: Array<string | number>) => request<{ id: string | number }>('/api/projects', {
   method: 'POST',
@@ -54,7 +75,45 @@ export const updateProjectMembersApi = (id: string | number, userIds: Array<stri
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ userIds }),
 });
-export const publishProjectApi = (id: string | number) => request<{ message: string }>(`/api/projects/${id}/publish`, { method: 'POST' });
+export interface ApiRequirementsGroup {
+  phase: {
+    id: string;
+    name: string;
+    displayName: string;
+    sequence: number;
+    status: string;
+  };
+  compliance: {
+    required: number;
+    mandatory: number;
+    submitted: number;
+    outstanding: number;
+    mandatorySubmitted: number;
+    mandatoryOutstanding: number;
+  };
+  requirements: ApiRequirement[];
+}
+
+export const getProjectRequirementsApi = (id: string | number) => request<{ phases: ApiRequirementsGroup[] }>(`/api/projects/${id}/requirements`);
+export const getPhaseRequirementsApi = (projectId: string | number, phaseId: string) => request<{ phase: ApiRequirementsGroup['phase']; requirements: ApiRequirement[] }>(`/api/projects/${projectId}/phases/${phaseId}/requirements`);
+export const ensureProjectRequirementsApi = (id: string | number) => request<{ phases: ApiRequirementsGroup[]; generated: boolean }>(`/api/projects/${id}/requirements/ensure`, {
+  method: 'POST',
+});
+export const createRequirementApi = (projectId: string | number, phaseId: string, input: { name: string; isMandatory?: boolean; sortOrder?: number }) => request<{ requirement: ApiRequirement }>(`/api/projects/${projectId}/phases/${phaseId}/requirements`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(input),
+});
+export const updateRequirementApi = (projectId: string | number, requirementId: string, input: Partial<Pick<ApiRequirement, 'name' | 'isMandatory' | 'sortOrder'>>) => request<{ requirement: ApiRequirement }>(`/api/projects/${projectId}/requirements/${requirementId}`, {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(input),
+});
+export const deleteRequirementApi = (projectId: string | number, requirementId: string) => request<{ message: string }>(`/api/projects/${projectId}/requirements/${requirementId}`, {
+  method: 'DELETE',
+});
+
+/** Report routes are not present in the current backend; retained for compatibility. */
 export const getReportsApi = () => request<{ reports: ApiReport[] }>('/api/reports');
 export const submitReportApi = (projectId: string | number, title: string, body: string) => request<{ id: string | number }>('/api/reports', {
   method: 'POST',
