@@ -10,11 +10,16 @@ import {
   type Project,
 } from '../db/schema';
 import { buildPhaseSeedRows, STANDARD_PHASES } from './phase.constants';
+import { assertUuidWith } from '../utils/validation';
+import { seedRequirementsForPhases } from './requirements.service';
 import { ROLE_NAMES } from '../types/auth.types';
 import { recordAudit } from './audit.service';
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export const assertUuid = (value: string, label: string): void => {
+  assertUuidWith(value, label, (notLabel) =>
+    projectServiceError(`Invalid ${notLabel}`, 400, 'INVALID_UUID'),
+  );
+};
 
 export type ProjectStatus = 'active' | 'completed' | 'on-hold';
 
@@ -100,12 +105,6 @@ export const projectServiceError = (
   statusCode: number,
   code: string,
 ): ProjectServiceError => Object.assign(new Error(message), { statusCode, code });
-
-export const assertUuid = (value: string, label: string): void => {
-  if (!UUID_PATTERN.test(value)) {
-    throw projectServiceError(`Invalid ${label}`, 400, 'INVALID_UUID');
-  }
-};
 
 const assertOptionalText = (
   value: string | null | undefined,
@@ -436,7 +435,7 @@ export const createProject = async (
     }
   }
 
-  const project = await db.transaction(async (tx) => {
+  const { created: project, requirementCount } = await db.transaction(async (tx) => {
     const [created] = await tx
       .insert(projects)
       .values({
@@ -462,9 +461,15 @@ export const createProject = async (
 
     // Phase Engine (Module 3): every new project starts with the 7
     // standard phases; sequence 1 is current, the rest are not_started.
-    await tx.insert(projectPhases).values(buildPhaseSeedRows(created.id));
+    // Document Requirements (Module 4): each new phase gets its standard
+    // requirement rows copied from the global template.
+    const generatedPhases = await tx
+      .insert(projectPhases)
+      .values(buildPhaseSeedRows(created.id))
+      .returning({ id: projectPhases.id, sequence: projectPhases.sequence });
+    const requirementCount = await seedRequirementsForPhases(tx, generatedPhases);
 
-    return created;
+    return { created, requirementCount };
   });
 
   await recordAudit({
@@ -480,6 +485,13 @@ export const createProject = async (
     entityType: 'project',
     entityId: project.id,
     metadata: { count: STANDARD_PHASES.length, backfill: false },
+  });
+  await recordAudit({
+    userId: actorId,
+    action: 'requirement.generated',
+    entityType: 'project',
+    entityId: project.id,
+    metadata: { count: requirementCount, backfill: false },
   });
   return getProject(project.id);
 };

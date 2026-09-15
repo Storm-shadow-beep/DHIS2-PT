@@ -755,6 +755,12 @@ First administrator is bootstrapped via controlled SQL (registration cannot crea
 | `GET` | `/api/projects/:projectId/phases/current` | `project:view` + `requireProjectAccess('view')` |
 | `POST` | `/api/projects/:projectId/phases/ensure` | `phase:manage` + `requireProjectAccess('phaseManage')`; idempotent backfill (`201` generated / `200` already initialized) |
 | `PATCH` | `/api/projects/:projectId/phases/:phaseId` | `phase:manage` + `requireProjectAccess('phaseManage')`; body `{ action: 'complete' \| 'reopen' }` |
+| `GET` | `/api/projects/:projectId/requirements` | `project:view` + `requireProjectAccess('view')`; per-phase groups of requirement rows with `compliance` summaries (required/mandatory/submitted/outstanding) |
+| `GET` | `/api/projects/:projectId/phases/:phaseId/requirements` | `project:view` + `requireProjectAccess('view')`; single-phase group |
+| `POST` | `/api/projects/:projectId/phases/:phaseId/requirements` | `phase:manage` + `requireProjectAccess('phaseManage')`; body `{ name, isMandatory?, sortOrder? }` → `201` |
+| `PATCH` | `/api/projects/:projectId/requirements/:requirementId` | `phase:manage` + `requireProjectAccess('phaseManage')`; partial `{ name?, isMandatory?, sortOrder? }` |
+| `DELETE` | `/api/projects/:projectId/requirements/:requirementId` | `phase:manage` + `requireProjectAccess('phaseManage')`; `409 REQUIREMENT_IN_USE` while documents reference it |
+| `POST` | `/api/projects/:projectId/requirements/ensure` | `phase:manage` + `requireProjectAccess('phaseManage')`; inserts only missing standard rows (`201` generated / `200` already complete) |
 
 Phase Engine rules: 7 standard phases (Initiation → Requirements Analysis →
 System Design → Development → Testing & UAT → Deployment → Closure);
@@ -766,8 +772,32 @@ recently completed phase can be reopened. Completing the final phase leaves
 conventions: malformed UUID → `400 INVALID_RESOURCE_ID`; uninitialized
 phases → `404 PHASES_NOT_INITIALIZED`; unknown phase → `404 PHASE_NOT_FOUND`.
 
+Document Requirements rules (Module 4): the global
+`document_requirement_templates` table holds the standard template (21 rows
+across the 7 phases, e.g. SRS, SDD, UAT Report, each flagged mandatory vs.
+optional). `POST /api/projects` and `POST .../phases/ensure` auto-seed
+per-project copies into `document_categories` (one row per project phase);
+pre-Module-4 projects converge via `POST .../requirements/ensure`.
+Requirement names are unique per phase case-insensitively, enforced at
+both layers: the application check plus the expression unique index
+`(phase_id, lower(name))` (migration `20260916000000`), with concurrent
+duplicate inserts mapped to `409 REQUIREMENT_CONFLICT`; deletion is blocked
+with `409 REQUIREMENT_IN_USE` while `documents` rows reference the category.
+Cross-project phase or requirement ids read as non-leaking `404`. Audit
+events: `requirement.created/updated/deleted/generated`. Each requirement
+carries `documentCount` and each phase a `compliance` summary
+(`required/mandatory/submitted/outstanding`, where submitted means ≥1 linked
+document) — version/approval-weighted aggregation remains a Module 5
+(Document Management) concern.
+
 Errors: missing/invalid token → `401`; insufficient capability → `403` (global) or non-leaking `404` (project/document scope); malformed UUID → `400 INVALID_RESOURCE_ID`; OTP rate limits → `429 + Retry-After`.
 
 ### 15.5 Not yet implemented (policy exists, routes pending)
 
-Document upload/list/version/delete/approve, project publish, and report endpoints have centralized policy types (`publish`, `reportView/Create`, `requireDocumentAccess`) but no routes in `auth-server/src/routes/`. Phase configuration (Module 3) is implemented — see §15.4. Document/report sketches in §§7–8/11 remain targets, not contracts.
+Document upload/list/version/delete/approve, submitted-vs-outstanding
+requirement aggregation, project publish, and report endpoints have
+centralized policy types (`publish`, `reportView/Create`,
+`requireDocumentAccess`) but no routes in `auth-server/src/routes/`. Phase
+configuration (Module 3) and Document Requirements CRUD + seeding (Module 4,
+see §15.4) are implemented. Document/report sketches in §§7–8/11 remain
+targets, not contracts.

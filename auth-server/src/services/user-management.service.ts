@@ -2,9 +2,7 @@ import { and, desc, eq, isNull } from 'drizzle-orm';
 import { db } from '../db';
 import { refreshTokens, roles, userRoles, users } from '../db/schema';
 import { recordAudit } from './audit.service';
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+import { assertUuidWith } from '../utils/validation';
 
 const serviceError = (message: string, statusCode: number): Error & { statusCode: number } =>
   Object.assign(new Error(message), { statusCode });
@@ -27,7 +25,7 @@ export interface AdminUser {
 }
 
 const assertUuid = (value: string, label: string): void => {
-  if (!UUID_PATTERN.test(value)) throw serviceError(`Invalid ${label}`, 400);
+  assertUuidWith(value, label, (notLabel) => serviceError(`Invalid ${notLabel}`, 400));
 };
 
 const assertRoleName = (roleName: string): string => {

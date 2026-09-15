@@ -182,13 +182,44 @@ export const projectPhases = pgTable(
   ],
 );
 
-export const documentCategories = pgTable('document_categories', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  phaseId: uuid('phase_id').notNull().references(() => projectPhases.id, { onDelete: 'cascade' }),
-  name: varchar('name', { length: 150 }).notNull(),
-  isMandatory: boolean('is_mandatory').notNull().default(true),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const documentRequirementTemplates = pgTable(
+  'document_requirement_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    phaseSequence: integer('phase_sequence').notNull(),
+    phaseName: varchar('phase_name', { length: 50 }).notNull(),
+    name: varchar('name', { length: 150 }).notNull(),
+    isMandatory: boolean('is_mandatory').notNull().default(true),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('document_requirement_templates_phase_name_unique').on(
+      table.phaseSequence,
+      table.name,
+    ),
+  ],
+);
+
+export const documentCategories = pgTable(
+  'document_categories',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    phaseId: uuid('phase_id').notNull().references(() => projectPhases.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 150 }).notNull(),
+    isMandatory: boolean('is_mandatory').notNull().default(true),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Case-insensitivity is additionally enforced by the expression index
+    // `document_categories_phase_name_unique_ci ON (phase_id, lower(name))`
+    // (see migration 20260916000000) so concurrent case-variant inserts
+    // cannot slip past the application-level check.
+    uniqueIndex('document_categories_phase_name_unique').on(table.phaseId, table.name),
+  ],
+);
 
 export const documents = pgTable('documents', {
   id: uuid('id').primaryKey().defaultRandom(),

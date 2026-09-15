@@ -1,3 +1,0 @@
-◇ injected env (39) from .env // tip: ⌘ override existing { override: true }
-USER: [{"id":"08f64c14-3f25-40fa-bdeb-901a0b1e603d","email":"ehudjf9@gmail.com","is_active":false,"created_at":"2026-09-08T09:56:17.178Z"}]
-ROLES: [{"name":"project_manager","project_id":null}]

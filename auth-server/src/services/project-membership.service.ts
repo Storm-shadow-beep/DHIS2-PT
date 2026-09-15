@@ -1,7 +1,8 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '../db';
-import { projectMembers, projects, users } from '../db/schema';
+import { projectMembers, users } from '../db/schema';
 import { recordAudit } from './audit.service';
+import { assertProjectExists } from './shared-guards';
 import {
   assertUuid,
   projectServiceError,
@@ -27,18 +28,11 @@ const listMembers = async (projectId: string): Promise<ProjectMemberSummary[]> =
   return rows;
 };
 
-const assertProjectExists = async (projectId: string): Promise<void> => {
-  const [project] = await db
-    .select({ id: projects.id })
-    .from(projects)
-    .where(eq(projects.id, projectId))
-    .limit(1);
-  if (!project) throw projectServiceError('Project not found', 404, 'PROJECT_NOT_FOUND');
-};
-
 export const listProjectMembers = async (projectId: string): Promise<ProjectMemberSummary[]> => {
   assertUuid(projectId, 'project id');
-  await assertProjectExists(projectId);
+  await assertProjectExists(db, projectId, () =>
+    projectServiceError('Project not found', 404, 'PROJECT_NOT_FOUND'),
+  );
   return listMembers(projectId);
 };
 
@@ -58,7 +52,9 @@ export const replaceProjectMembers = async (
     throw projectServiceError('userIds must not contain duplicates', 400, 'VALIDATION_ERROR');
   }
   uniqueUserIds.forEach((userId) => assertUuid(userId, 'user id'));
-  await assertProjectExists(projectId);
+  await assertProjectExists(db, projectId, () =>
+    projectServiceError('Project not found', 404, 'PROJECT_NOT_FOUND'),
+  );
 
   if (uniqueUserIds.length > 0) {
     const activeUsers = await db

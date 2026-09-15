@@ -1,25 +1,24 @@
 import { asc, eq } from 'drizzle-orm';
 import { db } from '../db';
 import { projectPhases, projects } from '../db/schema';
+import { assertUuidWith } from '../utils/validation';
+import { assertProjectExists } from './shared-guards';
 import { recordAudit } from './audit.service';
-import {
-  buildPhaseSeedRows,
+import { buildPhaseSeedRows,
   phaseTransitionError,
   resolveCompletion,
   resolveReopen,
   type PhaseTransitionError,
 } from './phase.constants';
+import { seedRequirementsForPhases } from './requirements.service';
 
 export { phaseTransitionError };
 export type { PhaseTransitionError };
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 export const assertPhaseUuid = (value: string, label: string): void => {
-  if (!UUID_PATTERN.test(value)) {
-    throw phaseTransitionError(`Invalid ${label}`, 400, 'INVALID_RESOURCE_ID');
-  }
+  assertUuidWith(value, label, (notLabel) =>
+    phaseTransitionError(`Invalid ${notLabel}`, 400, 'INVALID_RESOURCE_ID'),
+  );
 };
 
 export interface PhaseResponse {
@@ -32,20 +31,6 @@ export interface PhaseResponse {
   startedAt: Date | null;
   completedAt: Date | null;
 }
-
-const assertProjectExists = async (
-  txOrDb: typeof db,
-  projectId: string,
-): Promise<void> => {
-  const [project] = await txOrDb
-    .select({ id: projects.id })
-    .from(projects)
-    .where(eq(projects.id, projectId))
-    .limit(1);
-  if (!project) {
-    throw phaseTransitionError('Project not found.', 404, 'PROJECT_NOT_FOUND');
-  }
-};
 
 const toPhaseResponse = (row: typeof projectPhases.$inferSelect): PhaseResponse => ({
   id: row.id,
@@ -111,12 +96,23 @@ export const ensurePhases = async (
     .where(eq(projectPhases.projectId, projectId))
     .orderBy(asc(projectPhases.sequence));
 
+  // Document Requirements (Module 4): backfilled phases also get their
+  // standard requirement rows so pre-Phase-4 projects converge.
+  const requirementCount = await seedRequirementsForPhases(db, rows);
+
   await recordAudit({
     userId: actorId,
     action: 'phase.generated',
     entityType: 'project',
     entityId: projectId,
     metadata: { count: rows.length, backfill: true },
+  });
+  await recordAudit({
+    userId: actorId,
+    action: 'requirement.generated',
+    entityType: 'project',
+    entityId: projectId,
+    metadata: { count: requirementCount, backfill: true },
   });
   return { phases: rows.map(toPhaseResponse), generated: true };
 };

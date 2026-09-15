@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as projectController from '../controllers/projects.controller';
 import * as projectMembersController from '../controllers/project-members.controller';
 import * as phasesController from '../controllers/phases.controller';
+import * as requirementsController from '../controllers/requirements.controller';
 import { requireAuthenticatedUser } from '../middleware/auth.middleware';
 import {
   requirePermission,
@@ -66,6 +67,44 @@ router.patch(
   requirePermission('phase:manage'),
   requireProjectAccess('phaseManage'),
   phasesController.updatePhase,
+);
+
+// Document Requirements (Module 4): reads are project-visible, writes are PM-managed.
+router.get(
+  '/:projectId/requirements',
+  requirePermission('project:view'),
+  requireProjectAccess('view'),
+  requirementsController.listRequirements,
+);
+router.get(
+  '/:projectId/phases/:phaseId/requirements',
+  requirePermission('project:view'),
+  requireProjectAccess('view'),
+  requirementsController.listPhaseRequirements,
+);
+router.post(
+  '/:projectId/phases/:phaseId/requirements',
+  requirePermission('phase:manage'),
+  requireProjectAccess('phaseManage'),
+  requirementsController.createRequirement,
+);
+router.patch(
+  '/:projectId/requirements/:requirementId',
+  requirePermission('phase:manage'),
+  requireProjectAccess('phaseManage'),
+  requirementsController.updateRequirement,
+);
+router.delete(
+  '/:projectId/requirements/:requirementId',
+  requirePermission('phase:manage'),
+  requireProjectAccess('phaseManage'),
+  requirementsController.deleteRequirement,
+);
+router.post(
+  '/:projectId/requirements/ensure',
+  requirePermission('phase:manage'),
+  requireProjectAccess('phaseManage'),
+  requirementsController.ensureRequirements,
 );
 
 export default router;

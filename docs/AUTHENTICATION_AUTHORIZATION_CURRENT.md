@@ -1,6 +1,6 @@
 # Authentication & Authorization — Current State
 
-**Last verified:** 2026-09-14 against `auth-server/src/**` (Express + TypeScript + Drizzle + PostgreSQL)
+**Last verified:** 2026-09-15 against `auth-server/src/**` (Express + TypeScript + Drizzle + PostgreSQL) — Module 4 requirements routes included
 **Supersedes:** `AUTHENTICATION_AUTHORIZATION_STATUS.md` (2026-09-07) and `AUTHORIZATION_PROGRESS.md` (2026-09-09), retained as historical appendices — see Appendix A.
 **Scope:** `auth-server/src/routes/*.routes.ts`, `controllers/*`, `services/auth.service.ts`, `token.service.ts`, `otp.service.ts`, `authorization.service.ts`, `authorization.policy.ts`, `middleware/*`, `types/auth.types.ts`, `test/authorization.policy.test.js`.
 
@@ -78,6 +78,8 @@ Route coverage (verified 2026-09-11):
 | `GET /api/users` (assignable) | `routes/project-users.routes.ts:8` (`requirePermission(project:manage)`) | ✅ wired |
 | `GET /:projectId/phases`, `GET /:projectId/phases/current` | `routes/project.routes.ts` (`requirePermission(project:view)` + `requireProjectAccess(view)`) | ✅ wired — **Phase Engine (Module 3)** |
 | `POST /:projectId/phases/ensure`, `PATCH /:projectId/phases/:phaseId` | `routes/project.routes.ts` (`requirePermission(phase:manage)` + `requireProjectAccess(phaseManage)`) | ✅ wired — **Phase Engine (Module 3)** |
+| `GET /:projectId/requirements`, `GET /:projectId/phases/:phaseId/requirements` | `routes/project.routes.ts` (`requirePermission(project:view)` + `requireProjectAccess(view)`) | ✅ wired — **Document Requirements (Module 4)** |
+| `POST /:projectId/phases/:phaseId/requirements`, `PATCH /:projectId/requirements/:requirementId`, `DELETE /:projectId/requirements/:requirementId`, `POST /:projectId/requirements/ensure` | `routes/project.routes.ts` (`requirePermission(phase:manage)` + `requireProjectAccess(phaseManage)`) | ✅ wired — **Document Requirements (Module 4)** |
 | Document upload/list/version/delete/approve | no `document.routes.ts` in `src/routes/` | ❌ guards exist (`requireDocumentAccess`), no routes yet |
 | Publish, reports | no publish/report routes in `src/routes/` | ❌ policy types exist (`publish`, `reportView/Create`), no routes yet |
 
@@ -89,7 +91,7 @@ syncs on generate/complete/reopen; `POST .../phases/ensure` backfills
 pre-Phase-Engine projects idempotently; `phase.generated/completed/reopened`
 audit events recorded.
 
-Tests: `test/authorization.policy.test.js` covers administrator bypass, manager scope, member restrictions, document-delete ownership, phase-manage gating; `test/phase.transitions.test.js` covers seed order, linear completion, final-phase completion, reopen rules (8 tests total, run via `npm test`). No DB-backed route integration tests yet.
+Tests: `test/authorization.policy.test.js` covers administrator bypass, manager scope, member restrictions, document-delete ownership, phase-manage gating; `test/phase.transitions.test.js` covers seed order, linear completion, final-phase completion, reopen rules; `test/requirement-templates.test.js` covers the Module 4 standard template, category seed mapping, and name/sort-order validation (13 tests total, run via `npm test`). No DB-backed route integration tests yet.
 
 ---
 
@@ -101,7 +103,11 @@ Tests: `test/authorization.policy.test.js` covers administrator bypass, manager 
 4. Validation hand-rolled and duplicated; `joi` unused; frontend/backend rules aligned only by convention.
 5. Audit partial: login/OTP/refresh/reset/membership/document/phase/report mutations not all in `activity_log`; no retention cleanup job for expired OTP / revoked refresh rows.
 6. Administrator bootstrap is manual SQL (see §5) — public registration cannot create administrators.
-7. Migration `drizzle/drizzle/20260909103000_authorization_foundation/migration.sql` (plus `20260911100000_project_membership_constraints`) must be applied in the deployment DB before Module 2 routes are relied upon.
+7. Migrations `drizzle/drizzle/20260909103000_authorization_foundation`,
+   `20260911100000_project_membership_constraints`,
+   `20260914000000_phase_engine`, `20260915000000_document_requirements`,
+   and `20260916000000_requirement_name_case_insensitive` must be applied in
+   the deployment DB before Module 2–4 routes are relied upon.
 
 ---
 

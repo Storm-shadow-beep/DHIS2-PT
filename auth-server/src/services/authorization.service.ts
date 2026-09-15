@@ -11,6 +11,7 @@ import {
   users,
 } from '../db/schema';
 import { RoleName, ROLE_NAMES } from '../types/auth.types';
+import { assertUuidWith } from '../utils/validation';
 import {
   canAccessDocument,
   canAccessProject,
@@ -20,9 +21,6 @@ import {
   ProjectPolicyContext,
 } from './authorization.policy';
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 const authorizationError = (
   message: string,
   statusCode: number,
@@ -31,9 +29,12 @@ const authorizationError = (
   Object.assign(new Error(message), { statusCode, code });
 
 export const normalizeResourceId = (value: string | undefined, label: string): string => {
-  if (!value || !UUID_PATTERN.test(value)) {
+  if (!value) {
     throw authorizationError(`Invalid ${label}`, 400, 'INVALID_RESOURCE_ID');
   }
+  assertUuidWith(value, label, (notLabel) =>
+    authorizationError(`Invalid ${notLabel}`, 400, 'INVALID_RESOURCE_ID'),
+  );
   return value;
 };
 

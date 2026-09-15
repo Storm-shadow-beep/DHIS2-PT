@@ -34,8 +34,10 @@ has been applied. The repository currently provides the Drizzle schema
 definitions but does not include a migration command in the root project.
 
 Apply the migrations in `drizzle/drizzle/` to the target database in
-filename order — including `20260909103000_authorization_foundation` and
-`20260911100000_project_membership_constraints` — before relying on the
+filename order — including `20260909103000_authorization_foundation`,
+`20260911100000_project_membership_constraints`,
+`20260914000000_phase_engine`, `20260915000000_document_requirements`, and
+`20260916000000_requirement_name_case_insensitive` — before relying on the
 project/authorization routes. Then verify tables, permissions, and role
 grants. The first administrator must be bootstrapped via controlled SQL
 (public registration creates Team Member accounts only); see
@@ -196,5 +198,8 @@ npm run lint       # lint source files
   the authorization migrations were applied. See
   `AUTHENTICATION_AUTHORIZATION_CURRENT.md §3`.
 - **Active endpoint reference:** `PMS_APP_SPEC.md §15`
-  (`/api/auth/*`, `/api/admin/*`, `/api/projects`, `/api/users`); document /
-  phase / report / Drive endpoints are not yet implemented.
+  (`/api/auth/*`, `/api/admin/*`, `/api/projects`, `/api/users`,
+  `/api/projects/:projectId/phases/*`,
+  `/api/projects/:projectId/requirements/*`); document upload,
+  requirement status aggregation, publish, report, and Drive endpoints are
+  not yet implemented.
