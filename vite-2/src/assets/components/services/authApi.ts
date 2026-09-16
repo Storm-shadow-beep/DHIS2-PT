@@ -261,4 +261,14 @@ export const logoutApi = async (): Promise<void> => {
     clearAccessToken();
     notifySessionChange(false);
   }
+  };
+
+  export const changePasswordApi = async (currentPassword: string, newPassword: string): Promise<void> => {
+    const response = await authFetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    await parseResponse<{ message: string }>(response);
+    clearAccessToken(true);
 };

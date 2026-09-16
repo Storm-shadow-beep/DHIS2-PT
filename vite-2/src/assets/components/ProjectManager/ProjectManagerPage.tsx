@@ -5,10 +5,10 @@ import { PERMISSION_NAMES } from '../services/authApi';
 import {
   createProjectApi,
   getProjectPhasesApi,
+  getProjectRequirementsApi,
   getProjectsApi,
   getUsersApi,
-  publishProjectApi,
-  updatePhaseRequirementsApi,
+  updateProjectPhaseApi,
   updateProjectApi,
   updateProjectMembersApi,
 } from '../services/projectApi';
@@ -18,15 +18,15 @@ interface Project {
   id: string;
   name: string;
   subtitle: string;
-  publishedAt: string | null;
   memberNames: string[];
   memberIds: Array<string | number>;
 }
 
 interface Phase {
-  id: number;
+  id: string;
   name: string;
   requiredDocuments: number;
+  status: string;
 }
 
 export const ProjectManagerPage: React.FC = () => {
@@ -50,7 +50,6 @@ export const ProjectManagerPage: React.FC = () => {
       id: String(row.id),
       name: row.name,
       subtitle: row.subtitle ?? '',
-      publishedAt: row.published_at ?? null,
       memberNames: row.member_names ? row.member_names.split(',') : [],
       memberIds: row.member_ids ? row.member_ids.split(',') : [],
     })));
@@ -68,8 +67,13 @@ export const ProjectManagerPage: React.FC = () => {
       setPhases([]);
       return;
     }
-    void getProjectPhasesApi(selected.id)
-      .then(({ phases: rows }) => setPhases(rows.map((phase) => ({ ...phase, requiredDocuments: Number(phase.requiredDocuments) || 0 }))))
+    Promise.all([getProjectPhasesApi(selected.id), getProjectRequirementsApi(selected.id)])
+      .then(([{ phases: phaseRows }, { phases: requirementGroups }]) => setPhases(phaseRows.map((phase) => ({
+        id: phase.id,
+        name: phase.displayName || phase.name,
+        status: phase.status,
+        requiredDocuments: requirementGroups.find((group) => group.phase.id === phase.id)?.compliance.required ?? 0,
+      }))))
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Could not load phases.'));
   }, [selected]);
 
@@ -93,11 +97,17 @@ export const ProjectManagerPage: React.FC = () => {
     }
   };
 
-  const updatePhase = async (phase: Phase, value: number) => {
-    const nextValue = Math.max(0, value);
-    setPhases((current) => current.map((item) => item.id === phase.id ? { ...item, requiredDocuments: nextValue } : item));
+  const updatePhase = async (phase: Phase) => {
+    const action = phase.status === 'current' ? 'complete' : 'reopen';
     try {
-      await updatePhaseRequirementsApi(selectedId, phase.id, nextValue);
+      const result = await updateProjectPhaseApi(selectedId, phase.id, action);
+      setPhases(result.phases.map((item) => ({
+        id: item.id,
+        name: item.displayName || item.name,
+        status: item.status,
+        requiredDocuments: phases.find((current) => current.id === item.id)?.requiredDocuments ?? 0,
+      })));
+      setMessage(action === 'complete' ? 'Phase completed.' : 'Phase reopened.');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not update phase.');
     }
@@ -127,8 +137,11 @@ export const ProjectManagerPage: React.FC = () => {
           <option value="">Select a project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
         </select></label>
         {selected && <><div className="manager-panel-title"><div><h2>{selected.name}</h2><p>{selected.subtitle}</p></div><button className="manager-secondary" onClick={() => { setEditingId(selected.id); setForm({ name: selected.name, description: selected.subtitle, memberIds: selected.memberIds }); setShowForm(true); }}>Edit details</button></div>
-          <div className="phase-config">{phases.map((phase) => <label className="manager-field" key={phase.id}>{phase.name}<input type="number" min="0" value={phase.requiredDocuments} disabled={Boolean(selected.publishedAt)} onChange={(event) => void updatePhase(phase, Number(event.target.value))} /></label>)}</div>
-          {!selected.publishedAt && <button className="manager-primary" disabled={!phases.length || phases.some((phase) => phase.requiredDocuments < 1)} onClick={() => void publishProjectApi(selected.id).then(() => refresh()).then(() => setMessage('Project published.')).catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Could not publish project.'))}>Publish project</button>}
+          <div className="phase-config">{phases.map((phase) => <div className="manager-field" key={phase.id}>
+            <span>{phase.name} ({phase.requiredDocuments} requirements)</span>
+            {phase.status === 'current' && <button className="manager-secondary" type="button" onClick={() => void updatePhase(phase)}>Complete phase</button>}
+            {phase.status === 'completed' && <button className="manager-secondary" type="button" onClick={() => void updatePhase(phase)}>Reopen phase</button>}
+          </div>)}</div>
         </>}
       </section>
     </div>
