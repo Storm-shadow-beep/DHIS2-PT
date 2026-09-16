@@ -16,6 +16,9 @@ import {
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   fullName: varchar('full_name', { length: 150 }).notNull(),
+  fullNameUpdatedAt: timestamp('full_name_updated_at', { withTimezone: true }),
+  profilePicture: text('profile_picture'),
+  profilePictureUpdatedAt: timestamp('profile_picture_updated_at', { withTimezone: true }),
   email: varchar('email', { length: 255 }).notNull().unique(),
   passwordHash: text('password_hash').notNull(),
   isActive: boolean('is_active').notNull().default(true),

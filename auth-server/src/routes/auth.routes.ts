@@ -60,9 +60,11 @@ router.post('/reset-password', authLimiter, authController.resetPassword);
 // Authenticated
 router.get('/me', protect, authController.me);
 router.post('/logout', authController.logout);
+router.post('/logout-other-sessions', protect, authController.logoutOtherSessions);
 
 // Public registration creates a Team Member account. Privileged role assignment remains administrative.
 router.post('/register', registrationLimiter, authController.register);
 router.post('/change-password', protect, authController.changePassword);
+router.patch('/me', protect, authController.updateProfile);
 
 export default router;

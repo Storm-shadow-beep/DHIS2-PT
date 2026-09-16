@@ -122,6 +122,16 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
   res.json({ message: 'Logged out' });
 });
 
+export const logoutOtherSessions = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Not authenticated' });
+    return;
+  }
+  const currentToken = req.cookies?.[env.refreshTokenCookieName] as string | undefined;
+  await tokenService.revokeOtherRefreshTokens(req.user.sub, currentToken);
+  res.json({ message: 'Other sessions have been signed out' });
+});
+
 export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
   const email = String(req.body?.email ?? '');
   await authService.requestPasswordReset(email);
@@ -161,4 +171,21 @@ export const me = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
   res.json({ user });
+});
+
+export const updateProfile = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Not authenticated' });
+    return;
+  }
+  const { fullName, profilePicture } = req.body as {
+    fullName?: string;
+    profilePicture?: string | null;
+  };
+  const user = await authService.updateProfile({
+    userId: req.user.sub,
+    ...(fullName !== undefined ? { fullName } : {}),
+    ...(profilePicture !== undefined ? { profilePicture } : {}),
+  });
+  res.json({ message: 'Profile updated successfully', user });
 });

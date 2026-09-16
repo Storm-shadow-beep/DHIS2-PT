@@ -16,6 +16,7 @@ export interface AdminUserRole {
 export interface AdminUser {
   id: string;
   fullName: string;
+  profilePicture: string | null;
   email: string;
   isActive: boolean;
   lastLoginAt: Date | null;
@@ -43,6 +44,7 @@ async function getAdminUser(userId: string): Promise<AdminUser> {
     .select({
       id: users.id,
       fullName: users.fullName,
+      profilePicture: users.profilePicture,
       email: users.email,
       isActive: users.isActive,
       lastLoginAt: users.lastLoginAt,
@@ -66,6 +68,7 @@ async function getAdminUser(userId: string): Promise<AdminUser> {
   return {
     id: first.id,
     fullName: first.fullName,
+    profilePicture: first.profilePicture,
     email: first.email,
     isActive: first.isActive,
     lastLoginAt: first.lastLoginAt,
@@ -88,6 +91,7 @@ export async function listUsers(): Promise<AdminUser[]> {
     .select({
       id: users.id,
       fullName: users.fullName,
+      profilePicture: users.profilePicture,
       email: users.email,
       isActive: users.isActive,
       lastLoginAt: users.lastLoginAt,
@@ -110,6 +114,7 @@ export async function listUsers(): Promise<AdminUser[]> {
     const existing = usersById.get(row.id) ?? {
       id: row.id,
       fullName: row.fullName,
+      profilePicture: row.profilePicture,
       email: row.email,
       isActive: row.isActive,
       lastLoginAt: row.lastLoginAt,

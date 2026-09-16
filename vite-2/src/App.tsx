@@ -11,6 +11,7 @@ import { PasswordResetPage } from './assets/components/PasswordReset/PasswordRes
 import { ProjectManagerPage } from './assets/components/ProjectManager/ProjectManagerPage';
 import { ReportsPage } from './assets/components/Reports/ReportsPage';
 import { AdminPage } from './assets/components/Admin/AdminPage';
+import SettingsPage, { SettingsDetailPage } from './assets/components/Settings/SettingsPage';
 import { PermissionRoute, ProtectedRoute } from './assets/components/auth/RouteGuards';
 import { PERMISSION_NAMES } from './assets/components/services/authApi';
 
@@ -25,6 +26,9 @@ const routeTitles: Record<string, string> = {
   '/reports': 'PMS: Reports',
   '/project-manager': 'PMS: Project Manager',
   '/settings': 'PMS: Settings',
+  '/settings/password': 'PMS: Change Password',
+  '/settings/name': 'PMS: Edit Display Name',
+  '/settings/picture': 'PMS: Profile Picture',
   '/admin': 'PMS: Administration',
 };
 
@@ -40,9 +44,26 @@ const PageTitleUpdater: React.FC = () => {
   return null;
 };
 
+const ThemeBootstrap: React.FC = () => {
+  useEffect(() => {
+    const preference = localStorage.getItem('pms-theme') ?? 'system';
+    const apply = () => {
+      const dark = preference === 'dark'
+        || (preference === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    };
+    apply();
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    media.addEventListener?.('change', apply);
+    return () => media.removeEventListener?.('change', apply);
+  }, []);
+  return null;
+};
+
 function App() {
   return (
     <>
+      <ThemeBootstrap />
       <PageTitleUpdater />
       <Routes>
         <Route path="/" element={<LoginPage />} />
@@ -83,7 +104,10 @@ function App() {
               <ProjectManagerPage />
             </PermissionRoute>
           } />
-          <Route path="/settings" element={<div>Settings (Coming Soon)</div>} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/password" element={<SettingsDetailPage action="password" />} />
+          <Route path="/settings/name" element={<SettingsDetailPage action="name" />} />
+          <Route path="/settings/picture" element={<SettingsDetailPage action="picture" />} />
           <Route path="/admin" element={
             <PermissionRoute permission={PERMISSION_NAMES.USER_MANAGE}>
               <AdminPage />

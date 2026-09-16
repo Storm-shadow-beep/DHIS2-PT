@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 import { db } from '../db';
 import { refreshTokens } from '../db/schema';
 import { env } from '../config/env';
@@ -160,4 +160,14 @@ export async function revokeRefreshToken(token: string): Promise<void> {
     .update(refreshTokens)
     .set({ revokedAt: new Date() })
     .where(and(eq(refreshTokens.jti, decoded.jti), isNull(refreshTokens.revokedAt)));
+}
+
+export async function revokeOtherRefreshTokens(userId: string, currentToken?: string): Promise<void> {
+  const currentHash = currentToken ? hashToken(currentToken) : undefined;
+  const conditions = [
+    eq(refreshTokens.userId, userId),
+    isNull(refreshTokens.revokedAt),
+    ...(currentHash ? [ne(refreshTokens.tokenHash, currentHash)] : []),
+  ];
+  await db.update(refreshTokens).set({ revokedAt: new Date() }).where(and(...conditions));
 }

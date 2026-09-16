@@ -98,8 +98,9 @@ body {
 }
 
 .user-profile-side {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  align-items: center;
   gap: 10px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -113,6 +114,12 @@ body {
   font-weight: 600;
   line-height: 1.5;
 }
+
+.user-info-side strong, .user-info-side small { display: block; }
+.user-info-side small { color: #94a3b8; font-size: 11px; font-weight: 500; }
+.user-avatar { width: 36px; height: 36px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: #d97706; color: white; font-weight: 700; }
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.user-profile-side .logout-btn { grid-column: 1 / -1; }
 
 .logout-btn {
   background: transparent;
