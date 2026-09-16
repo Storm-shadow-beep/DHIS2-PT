@@ -7,15 +7,17 @@ dotenv.config();
 
 import app from './app';
 import { env } from './config/env';
-import { seedDefaultProjectManager } from './db/seed-default-manager';
+import { seedDefaultAdmin, seedDefaultProjectManager } from './db/seed-default-manager';
 
-void seedDefaultProjectManager()
-  .then(() => {
+void (async () => {
+  try {
+    await seedDefaultAdmin();
+    await seedDefaultProjectManager();
     app.listen(env.port, () => {
       console.log(`[auth-service] running on port ${env.port} in ${env.nodeEnv} mode`);
     });
-  })
-  .catch((error: unknown) => {
+  } catch (error: unknown) {
     console.error('[auth-service] startup failed:', error);
     process.exitCode = 1;
-  });
+  }
+})();

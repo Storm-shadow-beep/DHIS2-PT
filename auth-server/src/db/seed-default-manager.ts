@@ -69,3 +69,75 @@ export async function seedDefaultProjectManager(): Promise<void> {
 
   // console.log(`[auth-service] ensured default project manager: ${email}`);
 }
+
+const DEFAULT_ADMIN_EMAIL = 'admin@example.org';
+const DEFAULT_ADMIN_PASSWORD = 'admin@123';
+
+function isWeakPassword(password: string): boolean {
+  return password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password);
+}
+
+export async function seedDefaultAdmin(): Promise<void> {
+  const email = env.adminEmail.trim().toLowerCase();
+  const password = env.adminPassword;
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error('ADMIN_EMAIL must be a valid email address');
+  }
+
+  const isDefaultCredentials = email === DEFAULT_ADMIN_EMAIL && password === DEFAULT_ADMIN_PASSWORD;
+  if (isWeakPassword(password)) {
+    if (env.nodeEnv === 'production' || !isDefaultCredentials) {
+      throw new Error('ADMIN_PASSWORD must be at least 8 characters and contain letters and numbers');
+    }
+    console.warn('[auth-service] default admin uses a weak development password; set a strong ADMIN_PASSWORD in production');
+  } else if (isDefaultCredentials && env.nodeEnv === 'production') {
+    throw new Error('ADMIN_PASSWORD must be changed from the default in production');
+  }
+
+  await db.transaction(async (tx) => {
+    const [adminRole] = await tx
+      .select({ id: roles.id })
+      .from(roles)
+      .where(eq(roles.name, ROLE_NAMES.ADMINISTRATOR))
+      .limit(1);
+    if (!adminRole) throw new Error('The administrator role is not configured');
+
+    let admin = (await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1))[0];
+
+    if (!admin) {
+      const passwordHash = await bcrypt.hash(password, env.bcryptSaltRounds);
+      [admin] = await tx
+        .insert(users)
+        .values({
+          fullName: 'Default Administrator',
+          email,
+          passwordHash,
+        })
+        .returning({ id: users.id });
+    }
+
+    const [existingRole] = await tx
+      .select({ id: userRoles.id })
+      .from(userRoles)
+      .where(and(
+        eq(userRoles.userId, admin.id),
+        eq(userRoles.roleId, adminRole.id),
+        isNull(userRoles.projectId),
+      ))
+      .limit(1);
+
+    if (!existingRole) {
+      await tx.insert(userRoles).values({
+        userId: admin.id,
+        roleId: adminRole.id,
+      });
+    }
+  });
+
+  // console.log(`[auth-service] ensured default administrator: ${email}`);
+}
