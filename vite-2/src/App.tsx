@@ -10,6 +10,7 @@ import { DocumentsPage } from './assets/components/Documents/DocumentsPage';
 import { PasswordResetPage } from './assets/components/PasswordReset/PasswordResetPage';
 import { ProjectManagerPage } from './assets/components/ProjectManager/ProjectManagerPage';
 import { ReportsPage } from './assets/components/Reports/ReportsPage';
+import { AdminPage } from './assets/components/Admin/AdminPage';
 import { PermissionRoute, ProtectedRoute } from './assets/components/auth/RouteGuards';
 import { PERMISSION_NAMES } from './assets/components/services/authApi';
 
@@ -85,7 +86,7 @@ function App() {
           <Route path="/settings" element={<div>Settings (Coming Soon)</div>} />
           <Route path="/admin" element={
             <PermissionRoute permission={PERMISSION_NAMES.USER_MANAGE}>
-              <div>Administration (Coming Soon)</div>
+              <AdminPage />
             </PermissionRoute>
           } />
         </Route>
