@@ -78,4 +78,21 @@ export const env = {
   adminPassword: process.env.ADMIN_PASSWORD || 'admin@123',
   registrationRateLimitWindowMs: Number(process.env.REGISTRATION_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
   registrationRateLimitMax: Number(process.env.REGISTRATION_RATE_LIMIT_MAX) || 5,
+  driveDisabled: process.env.DRIVE_DISABLED === 'true',
+  driveSharedDriveId: process.env.DRIVE_SHARED_DRIVE_ID?.trim() || '',
+  driveRootFolderId: process.env.DRIVE_ROOT_FOLDER_ID?.trim() || '',
+  googleServiceAccountKeyFile: process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE?.trim() || '',
+  googleServiceAccountJsonB64: process.env.GOOGLE_SERVICE_ACCOUNT_JSON_B64?.trim() || '',
+  driveUploadMaxBytes: Number(process.env.DRIVE_UPLOAD_MAX_BYTES) || 50 * 1024 * 1024,
 } as const;
+
+if (!env.driveDisabled && env.nodeEnv === 'production') {
+  if (!env.driveSharedDriveId) {
+    throw new Error('Missing required production env: DRIVE_SHARED_DRIVE_ID');
+  }
+  if (!env.googleServiceAccountKeyFile && !env.googleServiceAccountJsonB64) {
+    throw new Error(
+      'Missing required production env: GOOGLE_SERVICE_ACCOUNT_KEY_FILE or GOOGLE_SERVICE_ACCOUNT_JSON_B64',
+    );
+  }
+}

@@ -182,6 +182,24 @@ export const projectPhases = pgTable(
   ],
 );
 
+export const driveFolders = pgTable(
+  'drive_folders',
+  {
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    phaseId: uuid('phase_id')
+      .notNull()
+      .references(() => projectPhases.id, { onDelete: 'cascade' }),
+    driveFolderId: varchar('drive_folder_id', { length: 255 }).notNull().unique(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.projectId, table.phaseId] }),
+    index('drive_folders_phase_idx').on(table.phaseId),
+  ],
+);
+
 export const documentRequirementTemplates = pgTable(
   'document_requirement_templates',
   {

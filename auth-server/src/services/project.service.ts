@@ -14,6 +14,7 @@ import { assertUuidWith } from '../utils/validation';
 import { seedRequirementsForPhases } from './requirements.service';
 import { ROLE_NAMES } from '../types/auth.types';
 import { recordAudit } from './audit.service';
+import { ensureProjectStructure } from './drive.service';
 
 export const assertUuid = (value: string, label: string): void => {
   assertUuidWith(value, label, (notLabel) =>
@@ -493,6 +494,20 @@ export const createProject = async (
     entityId: project.id,
     metadata: { count: requirementCount, backfill: false },
   });
+
+  // Drive Integration (Module 6): best-effort folder provisioning. A Drive
+  // outage must never fail project creation — failures are audited inside
+  // the Drive service and surfaced via POST .../drive/ensure retry.
+  // Manual driveFolderId wins: skip auto-provision when the caller linked one.
+  if (!input.driveFolderId) {
+    try {
+      await ensureProjectStructure(project.id, actorId);
+    } catch (error) {
+      console.error(
+        `[project:create] Drive provisioning deferred for ${project.id}: ${(error as Error).message.slice(0, 200)}`,
+      );
+    }
+  }
   return getProject(project.id);
 };
 
