@@ -182,7 +182,7 @@ export const AdminPage: React.FC = () => {
                 {visibleUsers.map((entry) => {
                   const isBusy = busyUserId === entry.id;
                   return <tr key={entry.id}>
-                    <td><div className="admin-user-cell"><span className="admin-avatar">{entry.fullName.charAt(0).toUpperCase()}</span><div><strong>{entry.fullName}</strong><span>{entry.email}</span></div></div></td>
+                    <td><div className="admin-user-cell"><span className="admin-avatar">{entry.profilePicture ? <img src={entry.profilePicture} alt="" /> : entry.fullName.charAt(0).toUpperCase()}</span><div><strong>{entry.fullName}</strong><span>{entry.email}</span></div></div></td>
                     <td><div className="admin-role-list">{entry.roles.length ? entry.roles.map((role) => <span className="admin-role-chip" key={role.id}>{role.displayName}{canManageRoles && <button type="button" aria-label={`Remove ${role.displayName} from ${entry.fullName}`} onClick={() => handleRemoveRole(entry, role.name)} disabled={isBusy}>×</button>}</span>) : <span className="admin-muted">No roles</span>}</div></td>
                     <td><span className={`admin-status ${entry.isActive ? 'active' : 'inactive'}`}><i />{entry.isActive ? 'Active' : 'Inactive'}</span></td>
                     <td className="admin-last-login">{formatDate(entry.lastLoginAt)}</td>

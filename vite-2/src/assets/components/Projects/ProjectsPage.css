@@ -230,6 +230,10 @@
   width: 32px;
 }
 
+:root[data-theme='dark'] .progress-value {
+  color: #ffffff;
+}
+
 .drive-btn {
   background: none;
   border: none;

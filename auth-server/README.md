@@ -73,6 +73,8 @@ Public registration creates a `Team Member` account. Privileged role assignment 
 | POST | /api/auth/reset-password | public |
 | POST | /api/auth/change-password | private (`protect`) |
 | GET | /api/auth/me | private |
+| PATCH | /api/auth/me | private; update display name and/or profile picture (display name once per three months; picture anytime) |
+| POST | /api/auth/logout-other-sessions | private; revoke all refresh sessions except the current cookie session |
 | POST | /api/auth/register | public; creates Team Member |
 | GET | /api/health | public |
 | GET | /api/admin/users | private; `user:manage` |

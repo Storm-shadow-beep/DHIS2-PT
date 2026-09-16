@@ -29,6 +29,7 @@ export type PermissionName = (typeof PERMISSION_NAMES)[keyof typeof PERMISSION_N
 export interface UserSession {
   id: string;
   fullName: string;
+  profilePicture?: string | null;
   email: string;
   role: string;
   roleDisplayName?: string;
@@ -271,4 +272,22 @@ export const logoutApi = async (): Promise<void> => {
     });
     await parseResponse<{ message: string }>(response);
     clearAccessToken(true);
+};
+
+export const updateProfileApi = async (input: {
+  fullName?: string;
+  profilePicture?: string | null;
+}): Promise<UserSession> => {
+  const response = await authFetch('/api/auth/me', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const data = await parseResponse<AuthResponse>(response);
+  return data.user;
+};
+
+export const logoutOtherSessionsApi = async (): Promise<void> => {
+  const response = await authFetch('/api/auth/logout-other-sessions', { method: 'POST' });
+  await parseResponse<{ message: string }>(response);
 };

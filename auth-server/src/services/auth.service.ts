@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, eq, gt, isNull, lte, or } from 'drizzle-orm';
 import { db } from '../db';
 import {
   passwordResetTokens,
@@ -32,6 +32,7 @@ const toSafeUser = (user: {
   id: string;
   fullName: string;
   email: string;
+  profilePicture?: string | null;
   role: RoleName;
   roles?: RoleName[];
   permissions: string[];
@@ -39,6 +40,7 @@ const toSafeUser = (user: {
   id: user.id,
   fullName: user.fullName,
   email: user.email,
+  profilePicture: user.profilePicture ?? null,
   role: user.role,
   roleDisplayName: ROLE_DISPLAY_NAMES[user.role],
   roles: [...new Set(user.roles?.length ? user.roles : [user.role])],
@@ -79,6 +81,7 @@ export async function register(input: RegisterInput): Promise<SafeUser> {
         id: users.id,
         fullName: users.fullName,
         email: users.email,
+        profilePicture: users.profilePicture,
       });
 
     await tx.insert(userRoles).values({ userId: user.id, roleId: role.id });
@@ -96,6 +99,7 @@ async function findUserWithRoles(email: string) {
       id: users.id,
       fullName: users.fullName,
       email: users.email,
+      profilePicture: users.profilePicture,
       passwordHash: users.passwordHash,
       isActive: users.isActive,
       role: roles.name,
@@ -147,6 +151,7 @@ export async function verifyLoginCredentials(input: LoginInput): Promise<LoginId
       id: user.id,
       fullName: user.fullName,
       email: user.email,
+      profilePicture: user.profilePicture,
       role,
       roles: user.roles,
       permissions: userPermissions,
@@ -189,6 +194,7 @@ export async function getUserById(id: string): Promise<SafeUser | null> {
       email: users.email,
       role: roles.name,
       roleDisplayName: roles.displayName,
+      profilePicture: users.profilePicture,
     })
     .from(users)
     .innerJoin(userRoles, eq(userRoles.userId, users.id))
@@ -205,10 +211,80 @@ export async function getUserById(id: string): Promise<SafeUser | null> {
     id: first.id,
     fullName: first.fullName,
     email: first.email,
+    profilePicture: first.profilePicture,
     role: first.role as RoleName,
     roles: rolesForUser,
     permissions: userPermissions,
   });
+}
+
+const threeMonthsAgo = (now: Date): Date => {
+  const cutoff = new Date(now);
+  cutoff.setMonth(cutoff.getMonth() - 3);
+  return cutoff;
+};
+
+export async function updateProfile(input: {
+  userId: string;
+  fullName?: string;
+  profilePicture?: string | null;
+}): Promise<SafeUser> {
+  const hasName = input.fullName !== undefined;
+  const hasPicture = input.profilePicture !== undefined;
+  if (!hasName && !hasPicture) throw httpError('At least one profile field is required', 400);
+
+  const fullName = hasName && typeof input.fullName === 'string' ? input.fullName.trim() : undefined;
+  if (hasName && (!fullName || fullName.length > 150)) {
+    throw httpError('Display name must be between 1 and 150 characters', 400);
+  }
+  if (hasPicture && input.profilePicture !== null &&
+      (typeof input.profilePicture !== 'string' || !input.profilePicture || input.profilePicture.length > 2_000_000)) {
+    throw httpError('Profile picture must be a valid image reference no larger than 2 MB', 400);
+  }
+  if (hasPicture && typeof input.profilePicture === 'string' && input.profilePicture &&
+      !/^https?:\/\/[^\s]+$/i.test(input.profilePicture) &&
+      !/^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\s]+$/i.test(input.profilePicture)) {
+    throw httpError('Profile picture must be an http(s) URL or base64 image', 400);
+  }
+
+  const [user] = await db.select({
+    id: users.id,
+    fullNameUpdatedAt: users.fullNameUpdatedAt,
+    isActive: users.isActive,
+  }).from(users).where(eq(users.id, input.userId)).limit(1);
+  if (!user || !user.isActive) throw httpError('Not authenticated', 401);
+
+  const now = new Date();
+  const cutoff = threeMonthsAgo(now);
+  if (hasName && user.fullNameUpdatedAt && user.fullNameUpdatedAt > cutoff) {
+    throw httpError('Display name can only be changed once every three months', 429);
+  }
+  const changes: {
+    fullName?: string;
+    fullNameUpdatedAt?: Date;
+    profilePicture?: string | null;
+    profilePictureUpdatedAt?: Date;
+    updatedAt: Date;
+  } = { updatedAt: now };
+  if (hasName) {
+    changes.fullName = fullName;
+    changes.fullNameUpdatedAt = now;
+  }
+  if (hasPicture) {
+    changes.profilePicture = input.profilePicture!;
+    changes.profilePictureUpdatedAt = now;
+  }
+  const updateConditions = [eq(users.id, user.id)];
+  if (hasName) {
+    updateConditions.push(or(isNull(users.fullNameUpdatedAt), lte(users.fullNameUpdatedAt, cutoff))!);
+  }
+  const [updatedRow] = await db.update(users).set(changes).where(and(...updateConditions)).returning({ id: users.id });
+  if (!updatedRow) {
+    throw httpError('Profile fields can only be changed once every three months', 429);
+  }
+  const updated = await getUserById(user.id);
+  if (!updated) throw httpError('Unable to load the updated account', 500);
+  return updated;
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {

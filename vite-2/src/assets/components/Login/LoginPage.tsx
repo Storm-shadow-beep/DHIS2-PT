@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AuthApiError, loginApi, resendOtpApi, verifyOtpApi } from '.././services/authApi';
+import { AuthApiError, loginApi, PERMISSION_NAMES, resendOtpApi, verifyOtpApi } from '.././services/authApi';
 import type { OtpChallenge } from '.././services/authApi';
+import { hasPermission } from '../auth/authorization';
 import { useAuth } from '../auth/AuthContext';
 import './LoginPage.css';
 
@@ -13,7 +14,7 @@ interface LoginCredentials {
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { status, setAuthenticatedUser } = useAuth();
+  const { status, user: authenticatedUser, setAuthenticatedUser } = useAuth();
 
   const [formData, setFormData] = useState<LoginCredentials>({
     email: '',
@@ -90,8 +91,10 @@ export const LoginPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (status === 'authenticated') navigate('/dashboard');
-  }, [navigate, status]);
+    if (status === 'authenticated' && authenticatedUser) {
+      navigate(hasPermission(authenticatedUser, PERMISSION_NAMES.USER_MANAGE) ? '/admin' : '/dashboard');
+    }
+  }, [authenticatedUser, navigate, status]);
 
   useEffect(() => {
     if (!otpChallenge) return undefined;
@@ -218,7 +221,7 @@ export const LoginPage: React.FC = () => {
       clearLockout();
       setAuthenticatedUser(user);
       setSuccessMessage('Login successful!');
-      setTimeout(() => navigate('/dashboard'), 500);
+      setTimeout(() => navigate(hasPermission(user, PERMISSION_NAMES.USER_MANAGE) ? '/admin' : '/dashboard'), 500);
     } catch (err: unknown) {
       if (err instanceof AuthApiError && err.status === 429) {
         enterLockout(err.retryAfterSeconds);

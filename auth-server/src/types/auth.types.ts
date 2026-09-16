@@ -29,6 +29,7 @@ export type PermissionName = (typeof PERMISSION_NAMES)[keyof typeof PERMISSION_N
 export interface SafeUser {
   id: string;
   fullName: string;
+  profilePicture: string | null;
   email: string;
   role: RoleName;
   roleDisplayName: string;
