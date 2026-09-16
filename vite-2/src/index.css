@@ -19,6 +19,273 @@ body,
 
 body {
   overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--page-background);
+  color: var(--text-primary);
+}
+
+:root {
+  --page-background: #f8fafc;
+  --surface: #ffffff;
+  --input: #ffffff;
+  --border: #dbe3ec;
+  --border-strong: #cbd5e1;
+  --text-primary: #172033;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --accent-soft: #fff7ed;
+  --surface-subtle: #f8fafc;
+  --surface-hover: #f1f5f9;
+  --button-dark: #0f2537;
+  --focus-ring: rgba(30, 58, 95, .16);
+}
+
+:root[data-theme='dark'] {
+  --page-background: #0f172a;
+  --surface: #172236;
+  --input: #111b2e;
+  --border: #334155;
+  --border-strong: #475569;
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --accent-soft: #3b2815;
+  --surface-subtle: #111b2e;
+  --surface-hover: #24344d;
+  --button-dark: #29496c;
+  --focus-ring: rgba(147, 197, 253, .22);
+}
+
+:root[data-theme='dark'] .main-content,
+:root[data-theme='dark'] .reports-page,
+:root[data-theme='dark'] .projects-container,
+:root[data-theme='dark'] .manager-page,
+:root[data-theme='dark'] .admin-page,
+:root[data-theme='dark'] .documents-page,
+:root[data-theme='dark'] .dashboard-container {
+  background: var(--page-background);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .settings-card,
+:root[data-theme='dark'] .settings-action-card,
+:root[data-theme='dark'] .settings-security-card,
+:root[data-theme='dark'] .report-composer,
+:root[data-theme='dark'] .report-card,
+:root[data-theme='dark'] .reports-empty,
+:root[data-theme='dark'] .projects-table-card,
+:root[data-theme='dark'] .project-details-card,
+:root[data-theme='dark'] .manager-panel,
+:root[data-theme='dark'] .admin-table-card,
+:root[data-theme='dark'] .documents-card,
+:root[data-theme='dark'] .dashboard-card {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text-primary);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .16);
+}
+
+:root[data-theme='dark'] .documents-sidebar,
+:root[data-theme='dark'] .documents-preview,
+:root[data-theme='dark'] .document-select-card,
+:root[data-theme='dark'] .documents-upload-panel,
+:root[data-theme='dark'] .documents-empty-state {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .document-select-card {
+  background: var(--surface-subtle);
+}
+
+:root[data-theme='dark'] .document-select-card.active {
+  background: #16382d;
+  border-color: #22c55e;
+}
+
+:root[data-theme='dark'] .documents-header h1,
+:root[data-theme='dark'] .documents-sidebar-header,
+:root[data-theme='dark'] .document-card-head h3,
+:root[data-theme='dark'] .documents-preview h2,
+:root[data-theme='dark'] .documents-preview h3 {
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .documents-subtitle,
+:root[data-theme='dark'] .documents-kicker,
+:root[data-theme='dark'] .document-card-meta,
+:root[data-theme='dark'] .documents-preview p,
+:root[data-theme='dark'] .documents-empty-state {
+  color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .documents-return,
+:root[data-theme='dark'] .documents-submit-button,
+:root[data-theme='dark'] .documents-sidebar select,
+:root[data-theme='dark'] .documents-upload-panel input,
+:root[data-theme='dark'] .documents-upload-panel select,
+:root[data-theme='dark'] .documents-upload-panel textarea {
+  background: var(--input);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .documents-submit-button {
+  background: var(--button-dark);
+}
+
+:root[data-theme='dark'] .metric-card,
+:root[data-theme='dark'] .dashboard-card {
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .reports-header p,
+:root[data-theme='dark'] .report-card p,
+:root[data-theme='dark'] .report-card small,
+:root[data-theme='dark'] .projects-table td,
+:root[data-theme='dark'] .project-subtitle,
+:root[data-theme='dark'] .detail-project-subtitle,
+:root[data-theme='dark'] .manager-header p,
+:root[data-theme='dark'] .admin-last-login,
+:root[data-theme='dark'] .admin-muted,
+:root[data-theme='dark'] .dashboard-card p {
+  color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .reports-header h1,
+:root[data-theme='dark'] .projects-title,
+:root[data-theme='dark'] .project-name,
+:root[data-theme='dark'] .detail-project-title,
+:root[data-theme='dark'] .admin-user-cell strong,
+:root[data-theme='dark'] .admin-empty-state h1,
+:root[data-theme='dark'] .admin-empty-state h3,
+:root[data-theme='dark'] .dashboard-card h2 {
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .report-composer label,
+:root[data-theme='dark'] .manager-field,
+:root[data-theme='dark'] .admin-table td,
+:root[data-theme='dark'] .filter-select,
+:root[data-theme='dark'] .pill-btn {
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .report-composer input,
+:root[data-theme='dark'] .report-composer select,
+:root[data-theme='dark'] .report-composer textarea,
+:root[data-theme='dark'] .manager-field input,
+:root[data-theme='dark'] .manager-field select,
+:root[data-theme='dark'] .filter-select,
+:root[data-theme='dark'] .projects-search-input,
+:root[data-theme='dark'] .admin-search input,
+:root[data-theme='dark'] .settings-card input {
+  background: var(--input);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .report-composer input::placeholder,
+:root[data-theme='dark'] .report-composer textarea::placeholder,
+:root[data-theme='dark'] .projects-search-input::placeholder,
+:root[data-theme='dark'] .admin-search input::placeholder {
+  color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .report-submit,
+:root[data-theme='dark'] .btn-primary,
+:root[data-theme='dark'] .primary-btn,
+:root[data-theme='dark'] .manager-primary,
+:root[data-theme='dark'] .progress-bar-fill {
+  background: var(--button-dark);
+}
+
+:root[data-theme='dark'] .btn-secondary,
+:root[data-theme='dark'] .manager-secondary,
+:root[data-theme='dark'] .admin-refresh-button,
+:root[data-theme='dark'] .admin-action-button {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .projects-table th,
+:root[data-theme='dark'] .admin-table th,
+:root[data-theme='dark'] .pill-group,
+:root[data-theme='dark'] .projects-table tbody tr:hover,
+:root[data-theme='dark'] .drive-btn:hover {
+  background: var(--surface-subtle);
+}
+
+:root[data-theme='dark'] .projects-table td,
+:root[data-theme='dark'] .projects-table th,
+:root[data-theme='dark'] .admin-table td,
+:root[data-theme='dark'] .admin-table th {
+  border-color: var(--border);
+}
+
+:root[data-theme='dark'] .selected-row {
+  background: rgba(30, 58, 95, .42);
+}
+
+:root[data-theme='dark'] .admin-role-chip,
+:root[data-theme='dark'] .admin-avatar {
+  background: var(--surface-hover);
+  color: var(--text-secondary) !important;
+}
+
+:root[data-theme='dark'] .admin-role-menu {
+  background: var(--surface);
+  border-color: var(--border-strong);
+}
+
+:root[data-theme='dark'] .admin-role-menu button {
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .admin-role-menu button:hover,
+:root[data-theme='dark'] .btn-secondary:hover,
+:root[data-theme='dark'] .manager-secondary:hover {
+  background: var(--surface-hover);
+}
+
+:root[data-theme='dark'] .admin-alert-error {
+  background: #3b1f2b;
+  border-color: #7f1d3a;
+  color: #fecdd3;
+}
+
+:root[data-theme='dark'] .admin-alert-success {
+  background: #15352a;
+  border-color: #166534;
+  color: #bbf7d0;
+}
+
+:root[data-theme='dark'] .reports-empty {
+  border-color: var(--border-strong);
+}
+
+:root[data-theme='dark'] .login-page,
+:root[data-theme='dark'] .registration-page,
+:root[data-theme='dark'] .password-reset-page {
+  background: var(--page-background);
+}
+
+button,
+input,
+select,
+textarea {
+  transition: background-color .2s ease, border-color .2s ease, color .2s ease, box-shadow .2s ease;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 img,

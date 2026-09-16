@@ -41,6 +41,11 @@ export const MainLayout: React.FC = () => {
         </div>
 
         <nav className="nav-menu">
+          {user && hasPermission(user, PERMISSION_NAMES.USER_MANAGE) && (
+            <NavLink to="/admin" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
+              Administration
+            </NavLink>
+          )}
           {user && hasPermission(user, PERMISSION_NAMES.PROJECT_VIEW) && (
             <NavLink to="/dashboard" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
               Dashboard
@@ -72,17 +77,17 @@ export const MainLayout: React.FC = () => {
           <NavLink to="/settings" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
             Settings
           </NavLink>
-          {user && hasPermission(user, PERMISSION_NAMES.USER_MANAGE) && (
-            <NavLink to="/admin" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
-              Administration
-            </NavLink>
-          )}
         </nav>
 
         <div className="sidebar-footer">
           <div className="user-profile-side">
+            <div className="user-avatar">
+              {user?.profilePicture
+                ? <img src={user.profilePicture} alt="" />
+                : (user?.fullName?.charAt(0).toUpperCase() || '?')}
+            </div>
             <span className="user-info-side">
-              {user ? `${user.fullName} · ${getRoleDisplayName(user)}` : 'Loading user...'}
+              {user ? <><strong>{user.fullName}</strong><small>{getRoleDisplayName(user)}</small></> : 'Loading user...'}
             </span>
             <button onClick={handleLogout} disabled={isLoggingOut} className="logout-btn">
               {isLoggingOut ? 'Signing Out...' : 'Sign Out'}

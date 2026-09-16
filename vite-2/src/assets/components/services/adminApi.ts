@@ -9,6 +9,7 @@ export interface AdminUserRole {
 export interface AdminUser {
   id: string;
   fullName: string;
+  profilePicture: string | null;
   email: string;
   isActive: boolean;
   lastLoginAt: string | null;
