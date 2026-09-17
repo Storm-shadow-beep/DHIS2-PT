@@ -16,7 +16,6 @@ type UserGroup = 'all' | 'team_member' | 'project_manager' | 'other';
 const ROLE_OPTIONS = [
   { name: 'project_manager', label: 'Project Manager' },
   { name: 'team_member', label: 'Team Member' },
-  { name: 'document_approver', label: 'Document Approver' },
   { name: 'administrator', label: 'Administrator' },
 ];
 

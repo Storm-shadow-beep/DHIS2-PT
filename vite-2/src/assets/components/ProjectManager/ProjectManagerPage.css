@@ -1,10 +1,120 @@
-.manager-page { min-height: 100%; padding: 32px; background: #f8fafc; color: #0f172a; }
-.manager-header, .manager-panel-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
-.manager-header { margin-bottom: 24px; }.manager-header h1 { margin: 4px 0 8px; }.manager-header p { margin: 0; color: #64748b; }
-.manager-kicker { color: #d97706 !important; text-transform: uppercase; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
-.manager-panel { max-width: 900px; margin-bottom: 18px; padding: 22px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; }
-.manager-create-form { display: grid; gap: 16px; }.manager-field { display: grid; gap: 7px; color: #475569; font-size: 12px; font-weight: 700; }
-.manager-field input, .manager-field select { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #cbd5e1; border-radius: 7px; font: inherit; }.manager-field select[multiple] { min-height: 110px; }
-.manager-primary, .manager-secondary { padding: 10px 16px; border-radius: 7px; font-weight: 700; cursor: pointer; }.manager-primary { border: 0; color: #fff; background: #0f2537; }.manager-primary:disabled { opacity: .55; cursor: not-allowed; }
-.manager-secondary { border: 1px solid #cbd5e1; color: #1e3a5f; background: #fff; }.manager-error { color: #991b1b; }.manager-success { color: #166534; }.phase-config { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin: 18px 0; }
-@media (max-width: 700px) { .manager-page { padding: 22px 16px; }.manager-header { flex-direction: column; } }
+.manager-page {
+  min-height: 100%;
+  padding: 32px;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.manager-header,
+.manager-panel-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.manager-header {
+  margin-bottom: 24px;
+}
+
+.manager-header h1 {
+  margin: 4px 0 8px;
+}
+
+.manager-header p {
+  margin: 0;
+  color: #64748b;
+}
+
+.manager-kicker {
+  color: #d97706 !important;
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+}
+
+.manager-panel {
+  max-width: 900px;
+  margin-bottom: 18px;
+  padding: 22px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.manager-create-form {
+  display: grid;
+  gap: 16px;
+}
+
+.manager-field {
+  display: grid;
+  gap: 7px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.manager-field input,
+.manager-field select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  font: inherit;
+}
+
+.manager-field select[multiple] {
+  min-height: 110px;
+}
+
+.manager-primary,
+.manager-secondary {
+  padding: 10px 16px;
+  border-radius: 7px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.manager-primary {
+  border: 0;
+  color: #fff;
+  background: #0f2537;
+}
+
+.manager-primary:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.manager-secondary {
+  border: 1px solid #cbd5e1;
+  color: #1e3a5f;
+  background: #fff;
+}
+
+.manager-error {
+  color: #991b1b;
+}
+
+.manager-success {
+  color: #166534;
+}
+
+.phase-config {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+
+@media (max-width: 700px) {
+  .manager-page {
+    padding: 22px 16px;
+  }
+  .manager-header {
+    flex-direction: column;
+  }
+}
