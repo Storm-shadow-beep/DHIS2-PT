@@ -3,9 +3,11 @@ import * as projectController from '../controllers/projects.controller';
 import * as projectMembersController from '../controllers/project-members.controller';
 import * as phasesController from '../controllers/phases.controller';
 import * as requirementsController from '../controllers/requirements.controller';
+import * as documentsController from '../controllers/documents.controller';
 import * as driveController from '../controllers/drive.controller';
 import { requireAuthenticatedUser } from '../middleware/auth.middleware';
 import {
+  requireDocumentAccess,
   requirePermission,
   requireProjectAccess,
   requireProjectManager,
@@ -108,9 +110,63 @@ router.post(
   requirementsController.ensureRequirements,
 );
 
+// Document Management (Module 5): metadata + version + approval workflow.
+// Collection writes need member-level upload rights; :documentId routes add
+// document-scoped guards (service re-verifies the :projectId scope).
+router.get(
+  '/:projectId/documents',
+  requirePermission('document:view'),
+  requireProjectAccess('view'),
+  documentsController.listDocuments,
+);
+router.post(
+  '/:projectId/documents',
+  requirePermission('document:upload'),
+  requireProjectAccess('member'),
+  documentsController.documentUpload.single('file'),
+  documentsController.uploadDocument,
+);
+router.get(
+  '/:projectId/documents/:documentId',
+  requirePermission('document:view'),
+  requireDocumentAccess('view', 'documentId'),
+  documentsController.getDocument,
+);
+router.delete(
+  '/:projectId/documents/:documentId',
+  requirePermission('document:delete'),
+  requireDocumentAccess('delete', 'documentId'),
+  documentsController.deleteDocument,
+);
+router.get(
+  '/:projectId/documents/:documentId/versions',
+  requirePermission('document:view'),
+  requireDocumentAccess('view', 'documentId'),
+  documentsController.listVersions,
+);
+router.post(
+  '/:projectId/documents/:documentId/versions',
+  requirePermission('document:upload'),
+  requireDocumentAccess('upload', 'documentId'),
+  documentsController.documentUpload.single('file'),
+  documentsController.uploadVersion,
+);
+router.get(
+  '/:projectId/documents/:documentId/approvals',
+  requirePermission('document:view'),
+  requireDocumentAccess('view', 'documentId'),
+  documentsController.listApprovals,
+);
+router.post(
+  '/:projectId/documents/:documentId/approvals',
+  requirePermission('document:approve'),
+  requireDocumentAccess('approve', 'documentId'),
+  documentsController.reviewDocument,
+);
+
 // Google Drive Integration (Module 6): service-account + Shared Drive.
-// Writes are PM-managed; reads/uploads are project-visible (tightened to
-// document permissions when Module 5 lands).
+// Writes are PM-managed; raw file reads/uploads stay project-visible.
+// Document metadata/version/approval above enforce document permissions.
 router.post(
   '/:projectId/drive/ensure',
   requirePermission('phase:manage'),

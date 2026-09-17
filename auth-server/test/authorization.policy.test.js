@@ -70,6 +70,25 @@ test('members can view and contribute without managing project configuration', (
   assert.equal(canAccessProject({ ...memberContext, isActiveMember: false }, 'view'), false);
 });
 
+test('document upload needs membership and approve needs review rights', () => {
+  const approverContext = {
+    ...memberContext,
+    permissions: [...memberContext.permissions, 'document:approve'],
+  };
+
+  assert.equal(canAccessDocument({ ...memberContext, isUploader: false }, 'upload'), true);
+  assert.equal(
+    canAccessDocument(
+      { ...memberContext, isUploader: false, isActiveMember: false },
+      'upload',
+    ),
+    false,
+  );
+  assert.equal(canAccessDocument({ ...approverContext, isUploader: false }, 'approve'), true);
+  assert.equal(canAccessDocument({ ...memberContext, isUploader: false }, 'approve'), false);
+  assert.equal(canAccessDocument({ ...memberContext, isUploader: false }, 'view'), true);
+});
+
 test('document deletion is limited to the uploader or an authorized manager', () => {
   const owner = { ...memberContext, isUploader: true };
   const otherMember = { ...memberContext, isUploader: false };

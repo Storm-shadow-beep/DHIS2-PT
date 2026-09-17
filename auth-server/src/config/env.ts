@@ -83,16 +83,33 @@ export const env = {
   driveRootFolderId: process.env.DRIVE_ROOT_FOLDER_ID?.trim() || '',
   googleServiceAccountKeyFile: process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE?.trim() || '',
   googleServiceAccountJsonB64: process.env.GOOGLE_SERVICE_ACCOUNT_JSON_B64?.trim() || '',
+  googleOAuthClientId: process.env.GOOGLE_OAUTH_CLIENT_ID?.trim() || '',
+  googleOAuthClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim() || '',
+  googleOAuthRefreshToken: process.env.GOOGLE_OAUTH_REFRESH_TOKEN?.trim() || '',
   driveUploadMaxBytes: Number(process.env.DRIVE_UPLOAD_MAX_BYTES) || 50 * 1024 * 1024,
 } as const;
 
 if (!env.driveDisabled && env.nodeEnv === 'production') {
-  if (!env.driveSharedDriveId) {
-    throw new Error('Missing required production env: DRIVE_SHARED_DRIVE_ID');
-  }
-  if (!env.googleServiceAccountKeyFile && !env.googleServiceAccountJsonB64) {
+  const hasOAuth =
+    Boolean(env.googleOAuthClientId) &&
+    Boolean(env.googleOAuthClientSecret) &&
+    Boolean(env.googleOAuthRefreshToken);
+  const hasServiceAccount = Boolean(
+    env.googleServiceAccountKeyFile || env.googleServiceAccountJsonB64,
+  );
+  if (!env.driveSharedDriveId && !env.driveRootFolderId) {
     throw new Error(
-      'Missing required production env: GOOGLE_SERVICE_ACCOUNT_KEY_FILE or GOOGLE_SERVICE_ACCOUNT_JSON_B64',
+      'Missing required production env: DRIVE_SHARED_DRIVE_ID or DRIVE_ROOT_FOLDER_ID',
+    );
+  }
+  if (!hasServiceAccount && !hasOAuth) {
+    throw new Error(
+      'Missing required production env: GOOGLE_SERVICE_ACCOUNT_KEY_FILE/GOOGLE_SERVICE_ACCOUNT_JSON_B64 or GOOGLE_OAUTH_CLIENT_ID/GOOGLE_OAUTH_CLIENT_SECRET/GOOGLE_OAUTH_REFRESH_TOKEN',
+    );
+  }
+  if (!hasOAuth && !env.driveSharedDriveId) {
+    throw new Error(
+      'Service-account mode requires DRIVE_SHARED_DRIVE_ID (service accounts have no My Drive quota)',
     );
   }
 }

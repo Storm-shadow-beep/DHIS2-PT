@@ -10,11 +10,22 @@ let cachedDrive: drive_v3.Drive | null = null;
 
 const isDriveDisabled = (): boolean => env.driveDisabled;
 
-export const isDriveConfigured = (): boolean => {
-  if (isDriveDisabled()) return false;
-  if (!env.driveSharedDriveId) return false;
-  return Boolean(env.googleServiceAccountKeyFile || env.googleServiceAccountJsonB64);
+export type DriveAuthMode = 'oauth' | 'service-account' | 'unconfigured';
+
+export const isOAuthConfigured = (): boolean =>
+  Boolean(env.googleOAuthClientId && env.googleOAuthClientSecret && env.googleOAuthRefreshToken);
+
+export const isServiceAccountConfigured = (): boolean =>
+  Boolean(env.googleServiceAccountKeyFile || env.googleServiceAccountJsonB64);
+
+export const getDriveAuthMode = (): DriveAuthMode => {
+  if (isDriveDisabled()) return 'unconfigured';
+  if (isOAuthConfigured() && (env.driveRootFolderId || env.driveSharedDriveId)) return 'oauth';
+  if (isServiceAccountConfigured() && env.driveSharedDriveId) return 'service-account';
+  return 'unconfigured';
 };
+
+export const isDriveConfigured = (): boolean => getDriveAuthMode() !== 'unconfigured';
 
 const resolveCredentials = (): { keyFile?: string; credentials?: Record<string, unknown> } => {
   try {
@@ -50,8 +61,25 @@ export const getDriveClient = async (): Promise<drive_v3.Drive> => {
     if (isDriveDisabled()) {
       throw driveConfigError('Drive integration is disabled (DRIVE_DISABLED=true)');
     }
+    // OAuth user-delegation mode: uploads run as the user, so a regular
+    // My Drive folder (DRIVE_ROOT_FOLDER_ID) works — no Shared Drive needed.
+    if (isOAuthConfigured()) {
+      if (!env.driveRootFolderId && !env.driveSharedDriveId) {
+        throw driveConfigError('DRIVE_ROOT_FOLDER_ID is not configured for OAuth Drive mode');
+      }
+      const oauth2Client = new google.auth.OAuth2(
+        env.googleOAuthClientId,
+        env.googleOAuthClientSecret,
+      );
+      oauth2Client.setCredentials({ refresh_token: env.googleOAuthRefreshToken });
+      cachedDrive = google.drive({ version: 'v3', auth: oauth2Client });
+      return cachedDrive;
+    }
+    // Service-account mode: SAs have no My Drive quota, so a Shared Drive is mandatory.
     if (!env.driveSharedDriveId) {
-      throw driveConfigError('DRIVE_SHARED_DRIVE_ID is not configured');
+      throw driveConfigError(
+        'DRIVE_SHARED_DRIVE_ID is not configured (service accounts require a Shared Drive; use OAuth mode for personal Gmail)',
+      );
     }
     const { keyFile, credentials } = resolveCredentials();
     const auth = new GoogleAuth({ keyFile, credentials, scopes: DRIVE_SCOPES });

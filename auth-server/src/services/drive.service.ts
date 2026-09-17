@@ -71,10 +71,38 @@ const mapGoogleError = (operation: string, error: unknown): DriveError => {
 
   if (status === 404) return driveServiceError('Drive resource not found', 404, 'DRIVE_NOT_FOUND');
   if (status === 429) return driveServiceError('Drive rate limit exceeded, retry shortly', 503, 'DRIVE_UNAVAILABLE', 60);
+  if (/Service Accounts do not have storage quota/i.test(message)) {
+    return driveServiceError(
+      'Drive is using a service account with a My Drive folder — switch to OAuth mode (GOOGLE_OAUTH_*) or a Shared Drive',
+      500,
+      'DRIVE_NOT_CONFIGURED',
+    );
+  }
+  if (/invalid_grant|invalid_client|invalid credentials|unauthorized/i.test(message)) {
+    return driveServiceError(
+      'Drive OAuth token invalid or revoked — regenerate GOOGLE_OAUTH_REFRESH_TOKEN and restart the server',
+      500,
+      'DRIVE_NOT_CONFIGURED',
+    );
+  }
+  if (status === 400 && /redirect_uri_mismatch/i.test(message)) {
+    return driveServiceError(
+      'Drive OAuth client misconfigured (redirect_uri_mismatch) — recreate the client as Desktop app',
+      500,
+      'DRIVE_NOT_CONFIGURED',
+    );
+  }
   if (status === 403 && /rateLimit|quota|userRateLimit/i.test(message)) {
     return driveServiceError('Drive quota exceeded, retry shortly', 503, 'DRIVE_UNAVAILABLE', 60);
   }
-  if (status === 403) return driveServiceError('Drive access denied — check sharing with the service account', 502, 'DRIVE_ACCESS_DENIED');
+  if (status === 403 && /insufficient|accessNotConfigured|access_denied|forbidden/i.test(message)) {
+    return driveServiceError(
+      'Drive access denied — enable the Drive API, grant the drive scope, and ensure the OAuth account owns the folder',
+      502,
+      'DRIVE_ACCESS_DENIED',
+    );
+  }
+  if (status === 403) return driveServiceError('Drive access denied — check folder sharing and Drive API access', 502, 'DRIVE_ACCESS_DENIED');
   if (typeof status === 'number' && status >= 500) {
     return driveServiceError('Drive service error, retry shortly', 502, 'DRIVE_OPERATION_FAILED', 30);
   }
@@ -160,7 +188,7 @@ export const ensureProjectStructure = async (
     assertDriveUuid(projectId, 'project id');
     if (!isDriveConfigured()) {
       throw driveServiceError(
-        'Drive integration is not configured (missing service-account key or DRIVE_SHARED_DRIVE_ID)',
+        'Drive integration is not configured (need GOOGLE_OAUTH_* + DRIVE_ROOT_FOLDER_ID, or service-account key + DRIVE_SHARED_DRIVE_ID)',
         500,
         'DRIVE_NOT_CONFIGURED',
       );
@@ -426,6 +454,50 @@ export const listFiles = async (
   } catch (error) {
     if (error instanceof Error && 'statusCode' in error) throw error;
     throw mapGoogleError('list:unknown', error);
+  }
+};
+
+/**
+ * Move a Drive file to trash (best-effort companion for document deletes).
+ * Throws stable Drive errors; callers decide whether trash failure is fatal.
+ */
+export const trashFile = async (driveFileId: string, actorId?: string): Promise<void> => {
+  try {
+    if (
+      typeof driveFileId !== 'string' ||
+      driveFileId.length === 0 ||
+      driveFileId.length > 255 ||
+      /[^A-Za-z0-9_-]/.test(driveFileId)
+    ) {
+      throw driveServiceError('Invalid file id', 400, 'VALIDATION_ERROR');
+    }
+    if (!isDriveConfigured()) throw driveServiceError('Drive integration is not configured', 500, 'DRIVE_NOT_CONFIGURED');
+
+    const drive = await getDriveClient().catch((error: unknown) => {
+      throw mapGoogleError('api:auth', error);
+    });
+
+    try {
+      await drive.files.update({
+        fileId: driveFileId,
+        requestBody: { trashed: true },
+        fields: 'id',
+        supportsAllDrives: true,
+      });
+      await safeAudit({
+        userId: actorId,
+        action: 'drive.file.trashed',
+        entityType: 'drive_file',
+        entityId: driveFileId,
+        metadata: { driveFileId },
+      });
+    } catch (error) {
+      if (error instanceof Error && 'statusCode' in error) throw error;
+      throw mapGoogleError('api:trash', error);
+    }
+  } catch (error) {
+    if (error instanceof Error && 'statusCode' in error) throw error;
+    throw mapGoogleError('trash:unknown', error);
   }
 };
 
