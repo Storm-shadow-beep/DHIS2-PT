@@ -372,7 +372,8 @@ export const listProjectAssignableUsers = async (): Promise<ProjectAssignableUse
 
   const roleByUserId = new Map<string, string>();
   for (const row of roleRows) {
-    if (!roleByUserId.has(row.userId)) roleByUserId.set(row.userId, row.role);
+    const currentRole = roleByUserId.get(row.userId);
+    if (!currentRole || row.role === 'Project Manager') roleByUserId.set(row.userId, row.role);
   }
 
   return activeUsers.map((user) => ({

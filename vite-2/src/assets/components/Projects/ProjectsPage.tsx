@@ -1,6 +1,12 @@
 // src/assets/components/Projects/ProjectsPage.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import {
+  getProjectDocumentsApi,
+  getProjectPhasesApi,
+  getProjectRequirementsApi,
+  getProjectsApi,
+} from '../services/projectApi';
 import './ProjectsPage.css';
 
 interface ProjectDocument {
@@ -13,8 +19,8 @@ interface ProjectDocument {
   fileType: string;
   size: string;
   driveLinked: boolean;
-  previewUrl: string;
-  downloadUrl: string;
+  previewUrl: string | null;
+  downloadUrl: string | null;
 }
 
 interface ProjectPhase {
@@ -341,7 +347,7 @@ const initialProjects: Project[] = seedProjectDocSets;
 
 const PROJECT_STORAGE_KEY = 'pms-project-documents';
 
-const hydrateProjectsFromStoredDocuments = (storedProjects: Project[] = initialProjects): Project[] => {
+export const hydrateProjectsFromStoredDocuments = (storedProjects: Project[] = initialProjects): Project[] => {
   if (typeof window === 'undefined') {
     return storedProjects;
   }
@@ -411,8 +417,98 @@ export const ProjectsPage: React.FC = () => {
   const [filterTab, setFilterTab] = useState<'all' | 'active' | 'closed'>('all');
   const [selectedPhase, setSelectedPhase] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [projects, setProjects] = useState<Project[]>(() => hydrateProjectsFromStoredDocuments(initialProjects));
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [activePhaseIndex, setActivePhaseIndex] = useState<number>(0);
+
+  const loadProjects = async () => {
+    setLoadError('');
+    const { projects: apiProjects } = await getProjectsApi();
+    const loadedProjects = await Promise.all(apiProjects.map(async (apiProject) => {
+      const [{ phases }, { phases: requirementGroups }, { documents }] = await Promise.all([
+        getProjectPhasesApi(apiProject.id),
+        getProjectRequirementsApi(apiProject.id),
+        getProjectDocumentsApi(apiProject.id),
+      ]);
+      const phaseDocuments = phases.map((phase) => ({
+        id: phase.id,
+        name: phase.displayName || phase.name,
+        status: phase.status === 'completed' ? 'Completed' : phase.status === 'current' ? 'Current' : 'Upcoming',
+        startedAt: phase.startedAt ?? 'Not started',
+        documents: documents
+          .filter((document) => document.phaseId === phase.id)
+          .map((document) => ({
+            id: document.id,
+            title: document.name,
+            phase: phase.displayName || phase.name,
+            submittedBy: document.uploaderName ?? 'Unknown user',
+            status: document.status === 'approved'
+              ? 'Approved'
+              : document.status === 'rejected' || document.status === 'needs_revision'
+                ? 'Needs Revision'
+                : 'Uploaded',
+            uploadedAt: new Date(document.uploadedAt).toISOString().slice(0, 10),
+            fileType: document.name.split('.').pop()?.toUpperCase() ?? 'FILE',
+            size: 'Stored in Drive',
+            driveLinked: Boolean(document.driveFileId),
+            previewUrl: document.driveLink,
+            downloadUrl: document.driveLink,
+          })),
+      } satisfies ProjectPhase));
+      const requiredDocuments = requirementGroups.reduce((total, group) => total + group.compliance.required, 0);
+      const submittedDocuments = documents.length;
+      const currentPhase = apiProject.currentPhase
+        ?? phaseDocuments.find((phase) => phase.status === 'Current')?.name
+        ?? phaseDocuments[0]?.name
+        ?? 'Not started';
+
+      return {
+        id: String(apiProject.id),
+        name: apiProject.name,
+        subtitle: apiProject.subtitle ?? apiProject.description ?? '',
+        manager: apiProject.projectManager?.fullName ?? 'Unassigned',
+        members: apiProject.members?.map((member) => member.fullName)
+          ?? (apiProject.member_names ? apiProject.member_names.split(',').map((name) => name.trim()) : []),
+        phase: currentPhase,
+        docsCompleted: submittedDocuments,
+        docsTotal: Math.max(requiredDocuments, submittedDocuments),
+        documentationPercent: Math.max(requiredDocuments, submittedDocuments) > 0
+          ? Math.round((submittedDocuments / Math.max(requiredDocuments, submittedDocuments)) * 100)
+          : 0,
+        driveLinked: Boolean(apiProject.driveFolderId),
+        status: apiProject.status === 'completed' ? 'closed' : 'active',
+        phases: phaseDocuments,
+      } satisfies Project;
+    }));
+    setProjects(loadedProjects);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    let disposed = false;
+    const refresh = async () => {
+      try {
+        await loadProjects();
+      } catch (error) {
+        if (disposed) return;
+        setIsLoading(false);
+        setLoadError(error instanceof Error ? error.message : 'Could not load projects.');
+      }
+    };
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 15000);
+    const handleProjectsUpdated = () => void refresh();
+    const handleDocumentsUpdated = () => void refresh();
+    window.addEventListener('pms:projects-updated', handleProjectsUpdated);
+    window.addEventListener('pms:documents-updated', handleDocumentsUpdated);
+    return () => {
+      disposed = true;
+      window.clearInterval(interval);
+      window.removeEventListener('pms:projects-updated', handleProjectsUpdated);
+      window.removeEventListener('pms:documents-updated', handleDocumentsUpdated);
+    };
+  }, []);
 
   const selectedProjectId = searchParams.get('projectId');
   const selectedProject = useMemo(
@@ -473,9 +569,13 @@ export const ProjectsPage: React.FC = () => {
         <h1 className="projects-title">Projects</h1>
         <div className="projects-action-buttons">
           <button className="btn-secondary">Export CSV</button>
-          <button className="btn-primary">New project</button>
+          <button className="btn-primary" onClick={() => navigate('/project-manager')}>New project</button>
         </div>
       </div>
+
+      {isLoading && <p className="empty-state">Loading projects...</p>}
+      {!isLoading && loadError && <p className="empty-state" role="alert">{loadError}</p>}
+      {!isLoading && !loadError && projects.length === 0 && <p className="empty-state">No projects have been created yet.</p>}
 
       <div className="projects-filter-bar">
         <div className="filter-left-group">

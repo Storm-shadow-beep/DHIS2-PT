@@ -1,520 +1,187 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { hasRole } from '../auth/authorization';
+import { ROLE_NAMES } from '../services/authApi';
+import {
+  type ApiDocument,
+  type ApiPhase,
+  type ApiProject,
+  deleteProjectDocumentApi,
+  getProjectDocumentsApi,
+  getProjectPhasesApi,
+  getProjectsApi,
+  uploadProjectDocumentApi,
+  reviewProjectDocumentApi,
+} from '../services/projectApi';
+import { downloadProjectDriveFileApi } from '../services/projectApi';
 import './DocumentsPage.css';
 
-interface ProjectDocument {
-  id: string;
-  title: string;
-  phase: string;
-  submittedBy: string;
-  status: 'Approved' | 'Needs Revision' | 'Uploaded';
-  uploadedAt: string;
+interface DocumentView extends ApiDocument {
+  phaseName: string;
   fileType: string;
-  size: string;
-  downloadUrl: string;
 }
 
-interface ProjectDocSet {
-  id: string;
-  name: string;
-  subtitle: string;
-  manager: string;
-  phases: string[];
-  documents: ProjectDocument[];
-}
-
-const STANDARD_PHASES = ['Initiation', 'Requirements', 'System Design', 'Testing & UAT', 'Deployment'];
-const STORAGE_KEY = 'pms-project-documents';
-
-const normalizeProjectPhases = (phases: string[] = []): string[] => {
-  const phaseSet = new Set(phases);
-  return STANDARD_PHASES.map((phase) => (phaseSet.has(phase) ? phase : phase));
-};
-
-const projectDocSetsSeed: ProjectDocSet[] = [
-  {
-    id: 'proj-1',
-    name: 'Document Organization Module',
-    subtitle: 'UDSM Practical Training',
-    manager: 'Peter Salum',
-    phases: ['Initiation', 'Requirements', 'System Design', 'Testing & UAT', 'Deployment'],
-    documents: [
-      {
-        id: 'd-1',
-        title: 'Database design workbook',
-        phase: 'System Design',
-        submittedBy: 'Peter Salum',
-        status: 'Approved',
-        uploadedAt: '2024-07-12',
-        fileType: 'PDF',
-        size: '3.2 MB',
-        downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-      },
-      {
-        id: 'd-2',
-        title: 'System architecture diagram',
-        phase: 'System Design',
-        submittedBy: 'Grace Mlay',
-        status: 'Uploaded',
-        uploadedAt: '2024-07-19',
-        fileType: 'PNG',
-        size: '1.4 MB',
-        downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-      },
-      {
-        id: 'd-3',
-        title: 'Interface specification',
-        phase: 'System Design',
-        submittedBy: 'Millicent Amani',
-        status: 'Needs Revision',
-        uploadedAt: '2024-07-28',
-        fileType: 'DOCX',
-        size: '1.1 MB',
-        downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-      },
-      {
-        id: 'd-4',
-        title: 'Requirements specification',
-        phase: 'Requirements',
-        submittedBy: 'Samuel Mtei',
-        status: 'Approved',
-        uploadedAt: '2024-06-18',
-        fileType: 'DOCX',
-        size: '1.8 MB',
-        downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-      },
-    ],
-  },
-  {
-    id: 'proj-2',
-    name: 'Community Registry Portal',
-    subtitle: 'Regional Council',
-    manager: 'Joseph Ndomba',
-    phases: ['Initiation', 'Requirements', 'System Design', 'Testing & UAT', 'Deployment'],
-    documents: [
-      {
-        id: 'd-5',
-        title: 'Business process map',
-        phase: 'Requirements',
-        submittedBy: 'Anna Kileo',
-        status: 'Uploaded',
-        uploadedAt: '2024-04-16',
-        fileType: 'PDF',
-        size: '2.4 MB',
-        downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-      },
-      {
-        id: 'd-6',
-        title: 'Requirements backlog',
-        phase: 'Requirements',
-        submittedBy: 'John Paschal',
-        status: 'Needs Revision',
-        uploadedAt: '2024-04-26',
-        fileType: 'XLSX',
-        size: '860 KB',
-        downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-      },
-      {
-        id: 'd-7',
-        title: 'Project brief',
-        phase: 'Initiation',
-        submittedBy: 'Joseph Ndomba',
-        status: 'Approved',
-        uploadedAt: '2024-03-12',
-        fileType: 'PDF',
-        size: '1.2 MB',
-        downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-      },
-    ],
-  },
-  {
-    id: 'proj-3',
-    name: 'Facility Asset Tracker',
-    subtitle: 'Internal',
-    manager: 'Anna Kileo',
-    phases: ['Initiation', 'Requirements', 'System Design', 'Testing & UAT', 'Deployment'],
-    documents: [
-      {
-        id: 'd-8',
-        title: 'UAT test results',
-        phase: 'Testing & UAT',
-        submittedBy: 'Faith Omar',
-        status: 'Approved',
-        uploadedAt: '2024-04-18',
-        fileType: 'XLSX',
-        size: '1.6 MB',
-        downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-      },
-      {
-        id: 'd-9',
-        title: 'Bug triage log',
-        phase: 'Testing & UAT',
-        submittedBy: 'Anna Kileo',
-        status: 'Needs Revision',
-        uploadedAt: '2024-05-05',
-        fileType: 'PDF',
-        size: '900 KB',
-        downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-      },
-      {
-        id: 'd-10',
-        title: 'Functional requirements',
-        phase: 'Requirements',
-        submittedBy: 'Joseph Ndomba',
-        status: 'Approved',
-        uploadedAt: '2024-02-11',
-        fileType: 'DOCX',
-        size: '1.3 MB',
-        downloadUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-      },
-    ],
-  },
-];
-
-const getStoredProjectDocSets = (): ProjectDocSet[] => {
-  if (typeof window === 'undefined') {
-    return projectDocSetsSeed;
-  }
-
-  try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) {
-      return projectDocSetsSeed;
-    }
-
-    const parsed = JSON.parse(saved) as ProjectDocSet[];
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      return projectDocSetsSeed;
-    }
-
-    return parsed.map((project) => ({
-      ...project,
-      phases: normalizeProjectPhases(project.phases),
-      documents: project.documents.map((document) => ({ ...document })),
-    }));
-  } catch {
-    return projectDocSetsSeed;
-  }
-};
-
-const formatFileSize = (bytes: number): string => {
-  if (!bytes) {
-    return '0 KB';
-  }
-
-  const units = ['B', 'KB', 'MB', 'GB'];
-  const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const adjustedSize = bytes / 1024 ** unitIndex;
-  const decimals = adjustedSize >= 10 || unitIndex === 0 ? 0 : 1;
-
-  return `${adjustedSize.toFixed(decimals)} ${units[unitIndex]}`;
+const statusLabel = (status: string): string => {
+  if (status === 'approved') return 'Approved';
+  if (status === 'rejected' || status === 'needs_revision') return 'Needs Revision';
+  if (status === 'submitted') return 'Awaiting Approval';
+  return 'Uploaded';
 };
 
 export const DocumentsPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const projectIdParam = searchParams.get('projectId');
-  const [projectDocSets, setProjectDocSets] = useState<ProjectDocSet[]>(() => getStoredProjectDocSets());
-  const [selectedDocumentId, setSelectedDocumentId] = useState<string>('');
-  const [showUploadForm, setShowUploadForm] = useState(false);
+  const requestedProjectId = searchParams.get('projectId');
   const { user } = useAuth();
   const currentUserName = user?.fullName ?? 'Current User';
-  const [uploadForm, setUploadForm] = useState({ title: '', phase: STANDARD_PHASES[0], fileName: '' });
+  const [project, setProject] = useState<ApiProject | null>(null);
+  const [phases, setPhases] = useState<ApiPhase[]>([]);
+  const [documents, setDocuments] = useState<DocumentView[]>([]);
+  const [selectedDocumentId, setSelectedDocumentId] = useState('');
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [uploadForm, setUploadForm] = useState({ name: '', phaseId: '' });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const selectedProject = useMemo(
-    () => projectDocSets.find((project) => project.id === projectIdParam) ?? projectDocSets[0] ?? null,
-    [projectDocSets, projectIdParam],
-  );
+  const loadProject = async (projectId: string) => {
+    const [{ projects: availableProjects }, { phases: nextPhases }, { documents: nextDocuments }] = await Promise.all([
+      getProjectsApi(),
+      getProjectPhasesApi(projectId),
+      getProjectDocumentsApi(projectId),
+    ]);
+    const nextProject = availableProjects.find((item) => String(item.id) === projectId);
+    if (!nextProject) throw new Error('Project not found.');
+    setProject(nextProject);
+    setPhases(nextPhases);
+    setDocuments(nextDocuments.map((document) => ({
+      ...document,
+      phaseName: nextPhases.find((phase) => phase.id === document.phaseId)?.displayName
+        ?? nextPhases.find((phase) => phase.id === document.phaseId)?.name
+        ?? 'Unknown phase',
+      fileType: document.name.split('.').pop()?.toUpperCase() ?? 'FILE',
+    })));
+    setUploadForm((current) => ({
+      ...current,
+      phaseId: nextPhases.some((phase) => phase.id === current.phaseId) ? current.phaseId : nextPhases[0]?.id ?? '',
+    }));
+  };
 
   useEffect(() => {
-    if (selectedProject) {
-      setSelectedDocumentId((currentDocumentId) => {
-        if (currentDocumentId && selectedProject.documents.some((document) => document.id === currentDocumentId)) {
-          return currentDocumentId;
-        }
-
-        return selectedProject.documents[0]?.id ?? '';
-      });
-
-      setUploadForm((current) => ({
-        ...current,
-        phase: selectedProject.phases.includes(current.phase) ? current.phase : selectedProject.phases[0] ?? STANDARD_PHASES[0],
-      }));
-    }
-  }, [selectedProject]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(projectDocSets));
-    }
-  }, [projectDocSets]);
+    let disposed = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const { projects: nextProjects } = await getProjectsApi();
+        if (disposed) return;
+        const projectId = requestedProjectId && nextProjects.some((item) => String(item.id) === requestedProjectId)
+          ? requestedProjectId
+          : nextProjects[0] ? String(nextProjects[0].id) : '';
+        if (projectId) await loadProject(projectId);
+        else setProject(null);
+      } catch (reason) {
+        if (!disposed) setError(reason instanceof Error ? reason.message : 'Could not load project documents.');
+      } finally {
+        if (!disposed) setLoading(false);
+      }
+    };
+    void load();
+    return () => { disposed = true; };
+  }, [requestedProjectId]);
 
   const activeDocument = useMemo(
-    () => selectedProject?.documents.find((document) => document.id === selectedDocumentId) ?? selectedProject?.documents[0] ?? null,
-    [selectedDocumentId, selectedProject],
+    () => documents.find((document) => document.id === selectedDocumentId) ?? documents[0] ?? null,
+    [documents, selectedDocumentId],
   );
 
-  const handleUploadSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    setSelectedDocumentId((current) => documents.some((document) => document.id === current) ? current : documents[0]?.id ?? '');
+  }, [documents]);
+
+  const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (!selectedProject) {
+    if (!project || !selectedFile || !uploadForm.phaseId) {
+      setError('Choose a file and phase before submitting.');
       return;
     }
-
-    const trimmedTitle = uploadForm.title.trim();
-    if (!trimmedTitle) {
-      alert('Please enter a document title before uploading.');
-      return;
+    try {
+      setSubmitting(true);
+      setError('');
+      const created = await uploadProjectDocumentApi(String(project.id), uploadForm.phaseId, selectedFile, uploadForm.name);
+      const phase = phases.find((item) => item.id === created.phaseId);
+      setDocuments((current) => [{
+        ...created,
+        phaseName: phase?.displayName ?? phase?.name ?? 'Unknown phase',
+        fileType: created.name.split('.').pop()?.toUpperCase() ?? 'FILE',
+      }, ...current]);
+      setSelectedDocumentId(created.id);
+      setSelectedFile(null);
+      setUploadForm({ name: '', phaseId: phases[0]?.id ?? '' });
+      setShowUploadForm(false);
+      window.dispatchEvent(new CustomEvent('pms:documents-updated'));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not upload document.');
+    } finally {
+      setSubmitting(false);
     }
-
-    const documentTitle = trimmedTitle || uploadForm.fileName || 'New document';
-    const fileType = selectedFile?.name
-      ? selectedFile.name.split('.').pop()?.toUpperCase() ?? 'FILE'
-      : 'FILE';
-    const fileSize = selectedFile ? formatFileSize(selectedFile.size) : '1.0 MB';
-    const newDocument: ProjectDocument = {
-      id: `doc-${Date.now()}`,
-      title: documentTitle,
-      phase: uploadForm.phase,
-      submittedBy: currentUserName,
-      status: 'Uploaded',
-      uploadedAt: new Date().toISOString().slice(0, 10),
-      fileType,
-      size: fileSize,
-      downloadUrl: '#',
-    };
-
-    setProjectDocSets((currentProjects) =>
-      currentProjects.map((project) =>
-        project.id === selectedProject.id
-          ? {
-              ...project,
-              phases: normalizeProjectPhases(project.phases),
-              documents: [newDocument, ...project.documents],
-            }
-          : project,
-      ),
-    );
-
-    setSelectedDocumentId(newDocument.id);
-    setSelectedFile(null);
-    setUploadForm({ title: '', phase: STANDARD_PHASES[0], fileName: '' });
-    setShowUploadForm(false);
   };
 
-  const handleDeleteDocument = (documentId: string) => {
-    if (!selectedProject) {
-      return;
+  const handleDelete = async (document: DocumentView) => {
+    if (!project || document.uploadedBy !== user?.id || !window.confirm('Delete this document?')) return;
+    try {
+      await deleteProjectDocumentApi(String(project.id), document.id);
+      setDocuments((current) => current.filter((item) => item.id !== document.id));
+      window.dispatchEvent(new CustomEvent('pms:documents-updated'));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not delete document.');
     }
-
-    const targetDocument = selectedProject.documents.find((document) => document.id === documentId);
-    if (!targetDocument) {
-      return;
-    }
-
-    if (targetDocument.submittedBy !== currentUserName) {
-      return;
-    }
-
-    const confirmed = window.confirm('Are you sure you want to delete this document? It will disappear for all project users.');
-    if (!confirmed) {
-      return;
-    }
-
-    setProjectDocSets((currentProjects) =>
-      currentProjects.map((project) =>
-        project.id !== selectedProject.id
-          ? project
-          : {
-              ...project,
-              documents: project.documents.filter((document) => document.id !== documentId),
-            },
-      ),
-    );
-
-    setSelectedDocumentId((currentSelection) =>
-      currentSelection === documentId ? '' : currentSelection,
-    );
   };
 
-  if (!selectedProject) {
-    return (
-      <div className="documents-empty-state">
-        <h2>No project selected</h2>
-        <p>Select a project from the project list to view its documents.</p>
-      </div>
-    );
-  }
+  const handleReview = async (decision: 'approved' | 'needs_revision') => {
+    if (!project || !activeDocument) return;
+    try {
+      setError('');
+      const result = await reviewProjectDocumentApi(String(project.id), activeDocument.id, decision);
+      setDocuments((current) => current.map((item) => item.id === result.document.id
+        ? { ...item, ...result.document }
+        : item));
+      window.dispatchEvent(new CustomEvent('pms:documents-updated'));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not review document.');
+    }
+  };
+
+  if (loading) return <div className="documents-empty-state"><h2>Loading documents...</h2><p>Retrieving the selected project documents.</p></div>;
+  if (error && !project) return <div className="documents-empty-state"><h2>Could not load documents</h2><p>{error}</p></div>;
+  if (!project) return <div className="documents-empty-state"><h2>No project selected</h2><p>Create a project or select one from the Projects page.</p></div>;
 
   return (
     <div className="documents-page">
       <div className="documents-header">
-        <div>
-          <p className="documents-kicker">Project documents</p>
-          <h1>{selectedProject.name}</h1>
-          <p className="documents-subtitle">{selectedProject.subtitle}</p>
-        </div>
+        <div><p className="documents-kicker">Project documents</p><h1>{project.name}</h1><p className="documents-subtitle">{project.subtitle ?? project.description ?? ''}</p></div>
         <div className="documents-header-actions">
-          <button className="documents-submit-button" onClick={() => setShowUploadForm((current) => !current)}>
-            {showUploadForm ? 'Close form' : 'Submit new file'}
-          </button>
-          <button className="documents-return" onClick={() => navigate(`/projects?projectId=${selectedProject.id}`)}>
-            Back to project
-          </button>
+          <button className="documents-submit-button" onClick={() => setShowUploadForm((current) => !current)}>{showUploadForm ? 'Close form' : 'Submit new file'}</button>
+          <button className="documents-return" onClick={() => navigate(`/projects?projectId=${project.id}`)}>Back to project</button>
         </div>
       </div>
-
-      {showUploadForm && (
-        <div className="submit-document-panel">
-          <div className="submit-document-header">
-            <div>
-              <p className="documents-kicker">New upload</p>
-              <h3>Submit file to project phase</h3>
-            </div>
-            <span className="current-user-tag">Submitting as {currentUserName}</span>
+      {error && <p className="documents-error" role="alert">{error}</p>}
+      {showUploadForm && <div className="submit-document-panel">
+        <div className="submit-document-header"><div><p className="documents-kicker">New upload</p><h3>Submit file to project phase</h3></div><span className="current-user-tag">Submitting as {currentUserName}</span></div>
+        <form className="submit-document-form" onSubmit={handleUpload}>
+          <div className="upload-form-grid">
+            <label className="upload-field"><span>Document title</span><input value={uploadForm.name} onChange={(event) => setUploadForm((current) => ({ ...current, name: event.target.value }))} placeholder="Optional: uses the file name" /></label>
+            <label className="upload-field"><span>Phase</span><select required value={uploadForm.phaseId} onChange={(event) => setUploadForm((current) => ({ ...current, phaseId: event.target.value }))}>{phases.map((phase) => <option key={phase.id} value={phase.id}>{phase.displayName || phase.name}</option>)}</select></label>
           </div>
-
-          <form className="submit-document-form" onSubmit={handleUploadSubmit}>
-            <div className="upload-form-grid">
-              <label className="upload-field">
-                <span>Document title</span>
-                <input
-                  type="text"
-                  value={uploadForm.title}
-                  onChange={(event) => setUploadForm((current) => ({ ...current, title: event.target.value }))}
-                  placeholder="e.g. System requirements checklist"
-                />
-              </label>
-
-              <label className="upload-field">
-                <span>Phase</span>
-                <select
-                  value={uploadForm.phase}
-                  onChange={(event) => setUploadForm((current) => ({ ...current, phase: event.target.value }))}
-                >
-                  {selectedProject.phases.map((phase) => (
-                    <option key={phase} value={phase}>
-                      {phase}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <label className="upload-field file-picker-field">
-              <span>Choose file</span>
-              <input
-                type="file"
-                onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null;
-                  setSelectedFile(file);
-                  setUploadForm((current) => ({ ...current, fileName: file?.name ?? '' }));
-                }}
-              />
-            </label>
-
-            <div className="upload-actions-bar">
-              <span className="upload-helper-text">
-                Submitted file will be marked as <strong>Uploaded</strong> and shown in the <strong>{uploadForm.phase}</strong> phase.
-              </span>
-              <div className="upload-button-row">
-                <button type="button" className="upload-cancel-button" onClick={() => setShowUploadForm(false)}>
-                  Cancel
-                </button>
-                <button type="submit" className="upload-submit-button">
-                  Submit file
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      )}
-
+          <label className="upload-field file-picker-field"><span>Choose file</span><input required type="file" onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} /></label>
+          <div className="upload-actions-bar"><span className="upload-helper-text">The file will be stored in the selected phase folder and linked to that phase.</span><div className="upload-button-row"><button type="button" className="upload-cancel-button" onClick={() => setShowUploadForm(false)}>Cancel</button><button disabled={submitting} type="submit" className="upload-submit-button">{submitting ? 'Submitting...' : 'Submit file'}</button></div></div>
+        </form>
+      </div>}
       <div className="documents-layout">
-        <aside className="documents-sidebar">
-          <div className="documents-sidebar-header">Documents</div>
-          {selectedProject.documents.map((document) => (
-            <button
-              key={document.id}
-              className={`document-select-card ${selectedDocumentId === document.id ? 'active' : ''}`}
-              onClick={() => setSelectedDocumentId(document.id)}
-            >
-              <div className="document-card-head">
-                <h3>{document.title}</h3>
-                <span className={`status-badge ${document.status.toLowerCase().replace(/\s+/g, '-')}`}>{document.status}</span>
-              </div>
-              <div className="document-card-meta">
-                <span className="phase-badge">{document.phase}</span>
-                <span>{document.submittedBy}</span>
-              </div>
-            </button>
-          ))}
-        </aside>
-
-        <section className="documents-preview">
-          {activeDocument ? (
-            <>
-              <div className="preview-toolbar">
-                <span className={`status-badge ${activeDocument.status.toLowerCase().replace(/\s+/g, '-')}`}>
-                  {activeDocument.status}
-                </span>
-                <div className="document-preview-actions">
-                  <a className="download-button" href={activeDocument.downloadUrl} target="_blank" rel="noreferrer" download>
-                    Download file
-                  </a>
-                  {activeDocument.submittedBy === currentUserName && (
-                    <button className="delete-button" onClick={() => handleDeleteDocument(activeDocument.id)}>
-                      Delete document
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="preview-body">
-                <div className="preview-topline">
-                  <p className="preview-kicker">Quick glance</p>
-                  <span className="phase-badge">{activeDocument.phase}</span>
-                </div>
-
-                <h2>{activeDocument.title}</h2>
-
-                <div className="info-grid">
-                  <div className="info-block">
-                    <span className="info-label">Submitted by</span>
-                    <strong>{activeDocument.submittedBy}</strong>
-                  </div>
-                  <div className="info-block">
-                    <span className="info-label">Uploaded</span>
-                    <strong>{activeDocument.uploadedAt}</strong>
-                  </div>
-                  <div className="info-block">
-                    <span className="info-label">File type</span>
-                    <strong>{activeDocument.fileType}</strong>
-                  </div>
-                  <div className="info-block">
-                    <span className="info-label">Size</span>
-                    <strong>{activeDocument.size}</strong>
-                  </div>
-                </div>
-
-                <div className="preview-notes">
-                  <h3>Submission details</h3>
-                  <p>
-                    This document was submitted during the <strong>{activeDocument.phase}</strong> phase for the{' '}
-                    <strong>{selectedProject.name}</strong> project by <strong>{activeDocument.submittedBy}</strong>.
-                  </p>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="documents-empty-state">
-              <h3>No document selected</h3>
-              <p>Upload a document or choose an existing item from the list.</p>
-            </div>
-          )}
-        </section>
+        <aside className="documents-sidebar"><div className="documents-sidebar-header">Documents <span>{documents.length}</span></div>{documents.length === 0 ? <p className="documents-empty-copy">No documents submitted yet.</p> : documents.map((document) => <button key={document.id} className={`document-select-card ${activeDocument?.id === document.id ? 'active' : ''}`} onClick={() => setSelectedDocumentId(document.id)}><div className="document-card-head"><h3>{document.name}</h3><span className={`status-badge ${statusLabel(document.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(document.status)}</span></div><div className="document-card-meta"><span className="phase-badge">{document.phaseName}</span><span>{document.uploaderName ?? 'Unknown user'}</span></div></button>)}</aside>
+        <section className="documents-preview">{activeDocument ? <><div className="preview-toolbar"><span className={`status-badge ${statusLabel(activeDocument.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(activeDocument.status)}</span><div className="document-preview-actions">{activeDocument.status === 'approved' && activeDocument.driveFileId && <button className="download-button" onClick={() => void downloadProjectDriveFileApi(String(project.id), activeDocument.driveFileId!, activeDocument.name)}>Download file</button>}{activeDocument.status === 'submitted' && hasRole(user, ROLE_NAMES.PROJECT_MANAGER) && <><button className="download-button" onClick={() => void handleReview('needs_revision')}>Request revision</button><button className="download-button" onClick={() => void handleReview('approved')}>Approve &amp; save to Drive</button></>}{activeDocument.uploadedBy === user?.id && <button className="delete-button" onClick={() => void handleDelete(activeDocument)}>Delete document</button>}</div></div><div className="preview-body"><div className="preview-topline"><p className="preview-kicker">Quick glance</p><span className="phase-badge">{activeDocument.phaseName}</span></div><h2>{activeDocument.name}</h2><div className="info-grid"><div className="info-block"><span className="info-label">Submitted by</span><strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong></div><div className="info-block"><span className="info-label">Uploaded</span><strong>{new Date(activeDocument.uploadedAt).toLocaleDateString()}</strong></div><div className="info-block"><span className="info-label">File type</span><strong>{activeDocument.fileType}</strong></div><div className="info-block"><span className="info-label">Version</span><strong>v{activeDocument.currentVersion}</strong></div></div><div className="preview-notes"><h3>Submission details</h3><p>This document was submitted during the <strong>{activeDocument.phaseName}</strong> phase for the <strong>{project.name}</strong> project by <strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong>.</p></div></div></> : <div className="documents-empty-state"><h3>No document selected</h3><p>Upload a document or choose an existing item from the list.</p></div>}</section>
       </div>
     </div>
   );

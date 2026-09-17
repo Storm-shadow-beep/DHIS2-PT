@@ -20,6 +20,7 @@ interface Project {
   subtitle: string;
   memberNames: string[];
   memberIds: Array<string | number>;
+  projectManagerId: string | null;
 }
 
 interface Phase {
@@ -38,7 +39,12 @@ export const ProjectManagerPage: React.FC = () => {
   const [phases, setPhases] = useState<Phase[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', memberIds: [] as Array<string | number> });
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    projectManagerId: '',
+    memberIds: [] as Array<string | number>,
+  });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -52,6 +58,7 @@ export const ProjectManagerPage: React.FC = () => {
       subtitle: row.subtitle ?? '',
       memberNames: row.member_names ? row.member_names.split(',') : [],
       memberIds: row.member_ids ? row.member_ids.split(',') : [],
+      projectManagerId: row.projectManager?.id ?? null,
     })));
     setUsers(availableUsers);
     setSelectedId((current) => current || (rows[0] ? String(rows[0].id) : ''));
@@ -81,11 +88,11 @@ export const ProjectManagerPage: React.FC = () => {
     event.preventDefault();
     try {
       if (editingId) {
-        await updateProjectApi(editingId, form.name, form.description);
+        await updateProjectApi(editingId, form.name, form.description, form.projectManagerId || null);
         await updateProjectMembersApi(editingId, form.memberIds);
         setMessage('Project details updated.');
       } else {
-        const result = await createProjectApi(form.name, form.description, form.memberIds);
+        const result = await createProjectApi(form.name, form.description, form.memberIds, form.projectManagerId || null);
         setSelectedId(String(result.id));
         setMessage('Project created.');
       }
@@ -118,30 +125,34 @@ export const ProjectManagerPage: React.FC = () => {
   return (
     <div className="manager-page">
       <header className="manager-header">
-        <div><p className="manager-kicker">Project manager workspace</p><h1>Project Manager</h1><p>Configure projects, assign members, and publish requirements.</p></div>
-        <button className="manager-primary" onClick={() => { setEditingId(null); setForm({ name: '', description: '', memberIds: [] }); setShowForm(true); }}>New project</button>
+        <div className="manager-heading"><p className="manager-kicker">Project manager workspace</p><h1>Project Manager</h1><p>Configure projects, assign members, and publish requirements.</p></div>
+        <button className="manager-primary" onClick={() => {         setEditingId(null); setForm({ name: '', description: '', projectManagerId: '', memberIds: [] }); setShowForm(true); }}>New project</button>
       </header>
       {error && <p className="manager-error" role="alert">{error}</p>}
       {message && <p className="manager-success" role="status">{message}</p>}
       {showForm && <form className="manager-panel manager-create-form" onSubmit={saveProject}>
-        <h2>{editingId ? 'Edit project' : 'Create project'}</h2>
-        <label className="manager-field">Project name<input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
-        <label className="manager-field">Description<input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label>
-        <label className="manager-field">Members<select multiple value={form.memberIds.map(String)} onChange={(event) => setForm({ ...form, memberIds: Array.from(event.target.selectedOptions, (option) => option.value) })}>
-          {users.filter((entry) => entry.role.toLowerCase() !== 'project manager').map((entry) => <option key={entry.id} value={entry.id}>{entry.fullName} · {entry.role}</option>)}
+        <div className="manager-form-heading"><div><p className="manager-section-kicker">{editingId ? 'Project settings' : 'Get started'}</p><h2>{editingId ? 'Edit project' : 'Create a project'}</h2></div><button type="button" className="manager-close" onClick={() => setShowForm(false)} aria-label="Close project form">×</button></div>
+        <div className="manager-form-grid">
+        <label className="manager-field">Project name<span className="manager-field-hint">Use a clear, recognizable name.</span><input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="e.g. Facility Asset Tracker" /></label>
+        <label className="manager-field">Description<span className="manager-field-hint">Add a short summary for your team.</span><input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="What is this project about?" /></label>
+        <label className="manager-field">Project manager<span className="manager-field-hint">Choose the person responsible for delivery.</span><select required value={form.projectManagerId} onChange={(event) => setForm({ ...form, projectManagerId: event.target.value })}>
+          <option value="">Select a project manager</option>
+          {users.filter((entry) => entry.role.toLowerCase() === 'project manager').map((entry) => <option key={entry.id} value={entry.id}>{entry.fullName} · {entry.role}</option>)}
         </select></label>
-        <button className="manager-primary" type="submit">Save project</button>
+        <label className="manager-field manager-members-field">Team members<span className="manager-field-hint">Hold Ctrl/Cmd to select more than one.</span><select multiple value={form.memberIds.map(String)} onChange={(event) => setForm({ ...form, memberIds: Array.from(event.target.selectedOptions, (option) => option.value) })}>
+          {users.filter((entry) => entry.role.toLowerCase() === 'team member').map((entry) => <option key={entry.id} value={entry.id}>{entry.fullName} · {entry.role}</option>)}
+        </select></label>
+        </div>
+        <div className="manager-form-actions"><button className="manager-secondary" type="button" onClick={() => setShowForm(false)}>Cancel</button><button className="manager-primary" type="submit">{editingId ? 'Save changes' : 'Create project'}</button></div>
       </form>}
       <section className="manager-panel">
-        <label className="manager-field">Project<select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
+        <div className="manager-selector-row"><label className="manager-field">Project<select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
           <option value="">Select a project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
-        </select></label>
-        {selected && <><div className="manager-panel-title"><div><h2>{selected.name}</h2><p>{selected.subtitle}</p></div><button className="manager-secondary" onClick={() => { setEditingId(selected.id); setForm({ name: selected.name, description: selected.subtitle, memberIds: selected.memberIds }); setShowForm(true); }}>Edit details</button></div>
-          <div className="phase-config">{phases.map((phase) => <div className="manager-field" key={phase.id}>
-            <span>{phase.name} ({phase.requiredDocuments} requirements)</span>
-            {phase.status === 'current' && <button className="manager-secondary" type="button" onClick={() => void updatePhase(phase)}>Complete phase</button>}
-            {phase.status === 'completed' && <button className="manager-secondary" type="button" onClick={() => void updatePhase(phase)}>Reopen phase</button>}
-          </div>)}</div>
+        </select></label><span className="manager-project-count">{projects.length} {projects.length === 1 ? 'project' : 'projects'}</span></div>
+        {selected && <><div className="manager-panel-title"><div><p className="manager-section-kicker">Project overview</p><h2>{selected.name}</h2><p>{selected.subtitle || 'No description added yet.'}</p></div><button className="manager-secondary" onClick={() => { setEditingId(selected.id); setForm({ name: selected.name, description: selected.subtitle, projectManagerId: selected.projectManagerId ?? '', memberIds: selected.memberIds }); setShowForm(true); }}>Edit details</button></div>
+          <div className="manager-summary-grid"><div><span>Project manager</span><strong>{users.find((entry) => String(entry.id) === selected.projectManagerId)?.fullName ?? 'Not assigned'}</strong></div><div><span>Team members</span><strong>{selected.memberIds.length}</strong></div><div><span>Requirements</span><strong>{phases.reduce((total, phase) => total + phase.requiredDocuments, 0)}</strong></div><div><span>Progress</span><strong>{phases.filter((phase) => phase.status === 'completed').length} / {phases.length || 0} phases</strong></div></div>
+          <div className="phase-heading"><div><h3>Project phases</h3><p>Track progress and move the project forward.</p></div></div>
+          <div className="phase-config">{phases.map((phase, index) => <div className={`phase-card ${phase.status}`} key={phase.id}><div className="phase-card-top"><span className="phase-number">0{index + 1}</span><span className={`phase-status ${phase.status}`}>{phase.status === 'not_started' ? 'Not started' : phase.status}</span></div><strong>{phase.name}</strong><span className="phase-requirements">{phase.requiredDocuments} requirements</span>{phase.status === 'current' && <button className="manager-secondary" type="button" onClick={() => void updatePhase(phase)}>Complete phase</button>}{phase.status === 'completed' && <button className="manager-secondary" type="button" onClick={() => void updatePhase(phase)}>Reopen phase</button>}</div>)}</div>
         </>}
       </section>
     </div>
