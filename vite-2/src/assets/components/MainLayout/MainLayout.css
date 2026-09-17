@@ -138,46 +138,6 @@ body {
   color: #ffffff;
 }
 
-.drive-status-card {
-  background-color: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 12px 14px;
-}
-
-.drive-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.status-dot.green {
-  background-color: #22c55e;
-}
-
-.status-dot.orange {
-  background-color: #f59e0b;
-}
-
-.status-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.drive-subtext {
-  margin: 4px 0 0 0;
-  font-size: 12px;
-  color: #94a3b8;
-}
-
 .main-content {
   flex: 1;
   display: flex;
