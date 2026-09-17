@@ -93,14 +93,6 @@ export const MainLayout: React.FC = () => {
               {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
             </button>
           </div>
-
-          <div className="drive-status-card">
-            <div className="drive-header">
-              <span className="status-dot green" />
-              <span className="status-label">Drive Connection</span>
-            </div>
-            <p className="drive-subtext">Connected · MOH shared drive</p>
-          </div>
         </div>
       </aside>
 
