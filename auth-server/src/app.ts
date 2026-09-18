@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.routes';
 import adminRoutes from './routes/admin.routes';
 import projectRoutes from './routes/project.routes';
 import projectUsersRoutes from './routes/project-users.routes';
+import reportRoutes from './routes/report.routes';
 import { notFound, errorHandler } from './middleware/error.middleware';
 
 const app = express();
@@ -34,6 +35,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/users', projectUsersRoutes);
+app.use('/api/reports', reportRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

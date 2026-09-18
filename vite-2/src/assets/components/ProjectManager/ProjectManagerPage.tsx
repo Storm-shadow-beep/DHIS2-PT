@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import { hasPermission } from '../auth/authorization';
-import { PERMISSION_NAMES } from '../services/authApi';
+import { hasPermission, hasRole } from '../auth/authorization';
+import { PERMISSION_NAMES, ROLE_NAMES } from '../services/authApi';
 import {
   createProjectApi,
   getProjectPhasesApi,
@@ -13,6 +13,7 @@ import {
   updateProjectMembersApi,
 } from '../services/projectApi';
 import './ProjectManagerPage.css';
+import { PageLoading } from '../PageLoading/PageLoading';
 
 interface Project {
   id: string;
@@ -33,6 +34,7 @@ interface Phase {
 export const ProjectManagerPage: React.FC = () => {
   const { user } = useAuth();
   const canManage = hasPermission(user, PERMISSION_NAMES.PROJECT_MANAGE);
+  const isAdministrator = hasRole(user, ROLE_NAMES.ADMINISTRATOR);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<{ id: string | number; fullName: string; role: string }[]>([]);
   const [selectedId, setSelectedId] = useState('');
@@ -48,11 +50,14 @@ export const ProjectManagerPage: React.FC = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const selected = useMemo(() => projects.find((project) => project.id === selectedId), [projects, selectedId]);
 
   const refresh = async () => {
-    const [{ projects: rows }, { users: availableUsers }] = await Promise.all([getProjectsApi(), getUsersApi()]);
+    setIsLoading(true);
+    try {
+      const [{ projects: rows }, { users: availableUsers }] = await Promise.all([getProjectsApi(), getUsersApi()]);
     setProjects(rows.map((row) => ({
       id: String(row.id),
       name: row.name,
@@ -63,6 +68,9 @@ export const ProjectManagerPage: React.FC = () => {
     })));
     setUsers(availableUsers);
     setSelectedId((current) => current || (rows[0] ? String(rows[0].id) : ''));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -132,8 +140,8 @@ export const ProjectManagerPage: React.FC = () => {
   return (
     <div className="manager-page">
       <header className="manager-header">
-        <div className="manager-heading"><p className="manager-kicker">Project manager workspace</p><h1>Project Manager</h1><p>Configure projects, assign members, and publish requirements.</p></div>
-        <button className="manager-primary" onClick={() => {         setEditingId(null); setForm({ name: '', description: '', projectManagerId: '', memberIds: [] }); setShowForm(true); }}>New project</button>
+        <div className="manager-heading"><p className="manager-kicker">{isAdministrator ? 'Administrator workspace' : 'Project manager workspace'}</p><h1>{isAdministrator ? 'Administrator' : 'Project Manager'}</h1><p>{isAdministrator ? 'Oversee projects, assign responsibilities, and manage project requirements.' : 'Configure projects, assign members, and publish requirements.'}</p></div>
+        {isAdministrator && <button className="manager-primary" onClick={() => { setEditingId(null); setForm({ name: '', description: '', projectManagerId: '', memberIds: [] }); setShowForm(true); }}>New project</button>}
       </header>
       {error && <p className="manager-error" role="alert">{error}</p>}
       {message && <p className="manager-success" role="status">{message}</p>}
@@ -166,7 +174,7 @@ export const ProjectManagerPage: React.FC = () => {
         <div className="manager-selector-row"><label className="manager-field">Project<select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
           <option value="">Select a project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
         </select></label><span className="manager-project-count">{projects.length} {projects.length === 1 ? 'project' : 'projects'}</span></div>
-        {selected && <><div className="manager-panel-title"><div><p className="manager-section-kicker">Project overview</p><h2>{selected.name}</h2><p>{selected.subtitle || 'No description added yet.'}</p></div><button className="manager-secondary" onClick={() => { setEditingId(selected.id); setForm({ name: selected.name, description: selected.subtitle, projectManagerId: selected.projectManagerId ?? '', memberIds: selected.memberIds }); setShowForm(true); }}>Edit details</button></div>
+        {isLoading ? <PageLoading message="Loading projects and workspace details..." /> : selected && <><div className="manager-panel-title"><div><p className="manager-section-kicker">Project overview</p><h2>{selected.name}</h2><p>{selected.subtitle || 'No description added yet.'}</p></div>{isAdministrator && <button className="manager-secondary" onClick={() => { setEditingId(selected.id); setForm({ name: selected.name, description: selected.subtitle, projectManagerId: selected.projectManagerId ?? '', memberIds: selected.memberIds }); setShowForm(true); }}>Edit details</button>}</div>
           <div className="manager-summary-grid"><div><span>Project manager</span><strong>{users.find((entry) => String(entry.id) === selected.projectManagerId)?.fullName ?? 'Not assigned'}</strong></div><div><span>Team members</span><strong>{selected.memberIds.length}</strong></div><div><span>Requirements</span><strong>{phases.reduce((total, phase) => total + phase.requiredDocuments, 0)}</strong></div><div><span>Progress</span><strong>{phases.filter((phase) => phase.status === 'completed').length} / {phases.length || 0} phases</strong></div></div>
           <div className="phase-heading"><div><h3>Project phases</h3><p>Track progress and move the project forward.</p></div></div>
           <div className="phase-config">{phases.map((phase, index) => <div className={`phase-card ${phase.status}`} key={phase.id}><div className="phase-card-top"><span className="phase-number">0{index + 1}</span><span className={`phase-status ${phase.status}`}>{phase.status === 'not_started' ? 'Not started' : phase.status}</span></div><strong>{phase.name}</strong><span className="phase-requirements">{phase.requiredDocuments} requirements</span>{phase.status === 'current' && <button className="manager-secondary" type="button" onClick={() => void updatePhase(phase)}>Complete phase</button>}{phase.status === 'completed' && <button className="manager-secondary" type="button" onClick={() => void updatePhase(phase)}>Reopen phase</button>}</div>)}</div>

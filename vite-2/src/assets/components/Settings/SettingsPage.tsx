@@ -9,6 +9,7 @@ import {
 } from '../services/authApi';
 import { getRoleDisplayName } from '../auth/authorization';
 import './SettingsPage.css';
+import { PageLoading } from '../PageLoading/PageLoading';
 
 type ThemePreference = 'light' | 'dark' | 'system';
 type SettingsAction = 'password' | 'name' | 'picture';
@@ -61,7 +62,7 @@ const SettingsOverview: React.FC = () => {
   const [status, setStatus] = useState('');
   const [saving, setSaving] = useState(false);
 
-  if (!user) return <div className="settings-page"><p>Loading account settings...</p></div>;
+  if (!user) return <div className="settings-page"><PageLoading message="Loading account settings..." /></div>;
 
   const signOutOtherSessions = async () => {
     setSaving(true);
@@ -126,7 +127,7 @@ const SettingsActionPage: React.FC<{ action: SettingsAction }> = ({ action }) =>
   const [cropZoom, setCropZoom] = useState(1);
   const [fileInputKey, setFileInputKey] = useState(0);
 
-  if (!user) return <div className="settings-page"><p>Loading account settings...</p></div>;
+  if (!user) return <div className="settings-page"><PageLoading message="Loading account settings..." /></div>;
 
   const run = async (callback: () => Promise<void>) => {
     setSaving(true);

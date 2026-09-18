@@ -12,6 +12,7 @@ import {
   requireProjectAccess,
   requireProjectManager,
   requireNonAdministrator,
+  requireAdministrator,
 } from '../middleware/authorize.middleware';
 
 const router = Router();
@@ -30,7 +31,7 @@ router.get(
 router.patch(
   '/:projectId',
   requirePermission('project:manage'),
-  requireProjectManager(),
+  requireAdministrator,
   projectController.updateProject,
 );
 

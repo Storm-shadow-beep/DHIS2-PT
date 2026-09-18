@@ -74,6 +74,50 @@
   cursor: pointer;
 }
 
+.report-submit:disabled,
+.report-delete:disabled {
+  cursor: wait;
+  opacity: .7;
+}
+
+.report-submit[disabled] {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.report-submit[disabled]::before {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, .35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  content: '';
+  animation: report-spin .7s linear infinite;
+}
+
+.report-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.report-delete {
+  margin-top: 16px;
+  padding: 8px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  color: #b91c1c;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@keyframes report-spin {
+  to { transform: rotate(360deg); }
+}
+
 .reports-list {
   margin-top: 28px;
 }

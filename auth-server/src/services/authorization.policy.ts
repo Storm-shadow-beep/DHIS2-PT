@@ -51,7 +51,7 @@ export const canAccessProject = (
       return hasPermission(context, 'project:publish') && context.isProjectManager;
     case 'reportCreate':
       return hasPermission(context, 'report:create') && (
-        context.isProjectManager || context.isActiveMember
+        context.isProjectManager
       );
   }
 };

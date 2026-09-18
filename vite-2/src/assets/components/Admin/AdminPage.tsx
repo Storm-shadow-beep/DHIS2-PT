@@ -10,6 +10,7 @@ import {
 } from '../services/adminApi';
 import type { AdminUser } from '../services/adminApi';
 import './AdminPage.css';
+import { PageLoading } from '../PageLoading/PageLoading';
 
 type UserGroup = 'all' | 'team_member' | 'project_manager' | 'other';
 
@@ -126,6 +127,7 @@ export const AdminPage: React.FC = () => {
   if (!user || !hasPermission(user, PERMISSION_NAMES.USER_MANAGE)) {
     return <div className="admin-page"><div className="admin-empty-state"><h1>Access denied</h1><p>You do not have permission to manage users.</p></div></div>;
   }
+  if (loading && users.length === 0) return <div className="admin-page"><PageLoading message="Loading user management..." /></div>;
 
   return (
     <div className="admin-page">
@@ -173,7 +175,7 @@ export const AdminPage: React.FC = () => {
         <div className="admin-table-heading">
           <div><h2>{selectedGroup === 'all' ? 'All registered users' : selectedGroup === 'other' ? 'Users with other roles' : selectedGroup === 'team_member' ? 'Team Members' : 'Project Managers'}</h2><p>{visibleUsers.length} user{visibleUsers.length === 1 ? '' : 's'} shown</p></div>
         </div>
-        {loading ? <div className="admin-empty-state">Loading users...</div> : visibleUsers.length === 0 ? <div className="admin-empty-state"><h3>No users found</h3><p>Try changing the group or search term.</p></div> : (
+        {loading ? <PageLoading message="Refreshing users..." /> : visibleUsers.length === 0 ? <div className="admin-empty-state"><h3>No users found</h3><p>Try changing the group or search term.</p></div> : (
           <div className="admin-table-scroll">
             <table className="admin-table">
               <thead><tr><th>User</th><th>Roles</th><th>Status</th><th>Last login</th><th className="admin-actions-column">Actions</th></tr></thead>

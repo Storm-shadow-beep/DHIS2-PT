@@ -1,6 +1,9 @@
 // src/assets/components/Projects/ProjectsPage.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { hasRole } from '../auth/authorization';
+import { ROLE_NAMES } from '../services/authApi';
+import { useAuth } from '../auth/AuthContext';
 import {
   getProjectDocumentsApi,
   getProjectPhasesApi,
@@ -8,6 +11,7 @@ import {
   getProjectsApi,
 } from '../services/projectApi';
 import './ProjectsPage.css';
+import { PageLoading } from '../PageLoading/PageLoading';
 
 interface ProjectDocument {
   id: string;
@@ -412,6 +416,8 @@ export const hydrateProjectsFromStoredDocuments = (storedProjects: Project[] = i
 };
 
 export const ProjectsPage: React.FC = () => {
+  const { user } = useAuth();
+  const canCreateProject = hasRole(user, ROLE_NAMES.ADMINISTRATOR);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [filterTab, setFilterTab] = useState<'all' | 'active' | 'closed'>('all');
@@ -582,12 +588,10 @@ export const ProjectsPage: React.FC = () => {
       <div className="projects-top-header">
         <h1 className="projects-title">Projects</h1>
         <div className="projects-action-buttons">
-          <button className="btn-secondary">Export CSV</button>
-          <button className="btn-primary" onClick={() => navigate('/project-manager')}>New project</button>
+          {canCreateProject && <button className="btn-primary" onClick={() => navigate('/project-manager')}>New project</button>}
         </div>
       </div>
 
-      {isLoading && <p className="empty-state">Loading projects...</p>}
       {!isLoading && loadError && <p className="empty-state" role="alert">{loadError}</p>}
       {!isLoading && !loadError && projects.length === 0 && <p className="empty-state">No projects have been created yet.</p>}
 
@@ -640,7 +644,13 @@ export const ProjectsPage: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredProjects.map((project) => (
+            {isLoading ? (
+              <tr>
+                <td colSpan={6}>
+                  <PageLoading message="Loading projects..." />
+                </td>
+              </tr>
+            ) : filteredProjects.map((project) => (
               <tr
                 key={project.id}
                 className={selectedProjectId === project.id ? 'selected-row' : ''}

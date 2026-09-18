@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PERMISSION_NAMES } from '../services/authApi';
 import { getRoleDisplayName, hasPermission } from '../auth/authorization';
+import { hasRole } from '../auth/authorization';
+import { ROLE_NAMES } from '../services/authApi';
 import { useAuth } from '../auth/AuthContext';
 import { TransitionOverlay } from '../TransitionOverlay/TransitionOverlay';
 import './MainLayout.css';
@@ -19,7 +21,7 @@ export const MainLayout: React.FC = () => {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      await new Promise((resolve) => window.setTimeout(resolve, 1100));
+      await new Promise((resolve) => window.setTimeout(resolve, 900));
       await signOut();
     } catch (error) {
       console.error('Logout failed:', error);
@@ -30,7 +32,7 @@ export const MainLayout: React.FC = () => {
 
   return (
     <div className="dashboard-layout">
-      {isLoggingOut && <TransitionOverlay message="Signing you out..." detail="Closing your secure session." />}
+      {isLoggingOut && <TransitionOverlay message="Signing you out..." detail="Closing your session." />}
       {/* Navigation Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-brand">
@@ -72,7 +74,7 @@ export const MainLayout: React.FC = () => {
           )}
           {user && hasPermission(user, PERMISSION_NAMES.PROJECT_MANAGE) && (
             <NavLink to="/project-manager" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
-              Manager Workspace
+              {hasRole(user, ROLE_NAMES.ADMINISTRATOR) ? 'Administrator Workspace' : 'Manager Workspace'}
             </NavLink>
           )}
           <NavLink to="/settings" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>

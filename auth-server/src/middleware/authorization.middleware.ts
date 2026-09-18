@@ -89,6 +89,25 @@ export const requireProjectManager = (parameter = 'projectId'): RequestHandler =
     }
   };
 
+export const requireAdministrator: RequestHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  try {
+    const context = await getAuthorizationContext(userId);
+    if (!context.globalRoles.includes('administrator')) {
+      res.status(403).json({ message: 'Only an administrator can edit project details.' });
+      return;
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const requireProjectMember = (parameter = 'projectId'): RequestHandler =>
   requireProjectAccess('member', parameter);
 

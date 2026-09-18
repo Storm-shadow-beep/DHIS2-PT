@@ -15,6 +15,7 @@ import {
 } from '../services/projectApi';
 import { downloadProjectDriveFileApi } from '../services/projectApi';
 import './DocumentsPage.css';
+import { PageLoading } from '../PageLoading/PageLoading';
 
 interface DocumentView extends ApiDocument {
   phaseName: string;
@@ -44,6 +45,7 @@ export const DocumentsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [deletingDocument, setDeletingDocument] = useState(false);
+  const [downloadingDocumentId, setDownloadingDocumentId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [documentPendingDelete, setDocumentPendingDelete] = useState<DocumentView | null>(null);
 
@@ -147,7 +149,20 @@ export const DocumentsPage: React.FC = () => {
     }
   };
 
-  if (loading) return <div className="documents-empty-state"><h2>Loading documents...</h2><p>Retrieving the selected project documents.</p></div>;
+  const handleDownload = async (document: DocumentView) => {
+    if (!project || downloadingDocumentId) return;
+    try {
+      setDownloadingDocumentId(document.id);
+      setError('');
+      await downloadProjectDriveFileApi(String(project.id), document.driveFileId, document.name);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not download document.');
+    } finally {
+      setDownloadingDocumentId(null);
+    }
+  };
+
+  if (loading) return <PageLoading message="Loading project documents..." />;
   if (error && !project) return <div className="documents-empty-state"><h2>Could not load documents</h2><p>{error}</p></div>;
   if (!project) return <div className="documents-empty-state"><h2>No project selected</h2><p>Create a project or select one from the Projects page.</p></div>;
 
@@ -174,7 +189,7 @@ export const DocumentsPage: React.FC = () => {
       </div>}
       <div className="documents-layout">
         <aside className="documents-sidebar"><div className="documents-sidebar-header"><div><span className="sidebar-title">Documents</span><span className="sidebar-caption">Submitted project files</span></div><span className="document-count">{documents.length}</span></div>{documents.length === 0 ? <div className="documents-empty-copy"><span className="empty-icon" aria-hidden="true">+</span><strong>No documents yet</strong><span>Submitted files will appear here.</span></div> : documents.map((document) => <button key={document.id} className={`document-select-card ${activeDocument?.id === document.id ? 'active' : ''}`} onClick={() => setSelectedDocumentId(document.id)} aria-pressed={activeDocument?.id === document.id}><div className="document-card-head"><h3>{document.name}</h3><span className={`status-badge ${statusLabel(document.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(document.status)}</span></div><div className="document-card-meta"><span className="phase-badge">{document.phaseName}</span><span>{document.uploaderName ?? 'Unknown user'}</span></div></button>)}</aside>
-        <section className="documents-preview">{activeDocument ? <><div className="preview-toolbar"><span className={`status-badge ${statusLabel(activeDocument.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(activeDocument.status)}</span><div className="document-preview-actions"><button className="download-button" onClick={() => void downloadProjectDriveFileApi(String(project.id), activeDocument.driveFileId, activeDocument.name)}>Download file</button>{!isAdministrator && activeDocument.uploadedBy === user?.id && <button className="delete-button" onClick={() => setDocumentPendingDelete(activeDocument)}>Delete document</button>}</div></div><div className="preview-body"><div className="preview-topline"><p className="preview-kicker">Quick glance</p><span className="phase-badge">{activeDocument.phaseName}</span></div><h2>{activeDocument.name}</h2><div className="info-grid"><div className="info-block"><span className="info-label">Submitted by</span><strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong></div><div className="info-block"><span className="info-label">Uploaded</span><strong>{new Date(activeDocument.uploadedAt).toLocaleDateString()}</strong></div><div className="info-block"><span className="info-label">File type</span><strong>{activeDocument.fileType}</strong></div><div className="info-block"><span className="info-label">Version</span><strong>v{activeDocument.currentVersion}</strong></div></div><div className="preview-notes"><h3>Submission details</h3><p>This document was submitted during the <strong>{activeDocument.phaseName}</strong> phase for the <strong>{project.name}</strong> project by <strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong>.</p></div></div></> : <div className="documents-empty-state"><h3>No document selected</h3><p>Upload a document or choose an existing item from the list.</p></div>}</section>
+        <section className="documents-preview">{activeDocument ? <><div className="preview-toolbar"><span className={`status-badge ${statusLabel(activeDocument.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(activeDocument.status)}</span><div className="document-preview-actions"><button className="download-button" disabled={downloadingDocumentId !== null} onClick={() => void handleDownload(activeDocument)}>{downloadingDocumentId === activeDocument.id ? <><span className="download-spinner" aria-hidden="true" />Downloading...</> : 'Download file'}</button>{!isAdministrator && activeDocument.uploadedBy === user?.id && <button className="delete-button" onClick={() => setDocumentPendingDelete(activeDocument)}>Delete document</button>}</div></div><div className="preview-body"><div className="preview-topline"><p className="preview-kicker">Quick glance</p><span className="phase-badge">{activeDocument.phaseName}</span></div><h2>{activeDocument.name}</h2><div className="info-grid"><div className="info-block"><span className="info-label">Submitted by</span><strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong></div><div className="info-block"><span className="info-label">Uploaded</span><strong>{new Date(activeDocument.uploadedAt).toLocaleDateString()}</strong></div><div className="info-block"><span className="info-label">File type</span><strong>{activeDocument.fileType}</strong></div><div className="info-block"><span className="info-label">Version</span><strong>v{activeDocument.currentVersion}</strong></div></div><div className="preview-notes"><h3>Submission details</h3><p>This document was submitted during the <strong>{activeDocument.phaseName}</strong> phase for the <strong>{project.name}</strong> project by <strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong>.</p></div></div></> : <div className="documents-empty-state"><h3>No document selected</h3><p>Upload a document or choose an existing item from the list.</p></div>}</section>
       </div>
       {documentPendingDelete && <div className="document-modal-backdrop" role="presentation" onMouseDown={(event) => { if (!deletingDocument && event.target === event.currentTarget) setDocumentPendingDelete(null); }}>
         <section className="document-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-document-title">
