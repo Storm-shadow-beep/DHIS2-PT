@@ -47,6 +47,7 @@ export const ProjectManagerPage: React.FC = () => {
   });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const selected = useMemo(() => projects.find((project) => project.id === selectedId), [projects, selectedId]);
 
@@ -86,6 +87,10 @@ export const ProjectManagerPage: React.FC = () => {
 
   const saveProject = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (isSaving) return;
+    setIsSaving(true);
+    setError('');
+    setMessage('');
     try {
       if (editingId) {
         await updateProjectApi(editingId, form.name, form.description, form.projectManagerId || null);
@@ -101,6 +106,8 @@ export const ProjectManagerPage: React.FC = () => {
       await refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not save project.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -131,7 +138,7 @@ export const ProjectManagerPage: React.FC = () => {
       {error && <p className="manager-error" role="alert">{error}</p>}
       {message && <p className="manager-success" role="status">{message}</p>}
       {showForm && <form className="manager-panel manager-create-form" onSubmit={saveProject}>
-        <div className="manager-form-heading"><div><p className="manager-section-kicker">{editingId ? 'Project settings' : 'Get started'}</p><h2>{editingId ? 'Edit project' : 'Create a project'}</h2></div><button type="button" className="manager-close" onClick={() => setShowForm(false)} aria-label="Close project form">×</button></div>
+        <div className="manager-form-heading"><div><p className="manager-section-kicker">{editingId ? 'Project settings' : 'Get started'}</p><h2>{editingId ? 'Edit project' : 'Create a project'}</h2></div><button type="button" className="manager-close" disabled={isSaving} onClick={() => setShowForm(false)} aria-label="Close project form">×</button></div>
         <div className="manager-form-grid">
         <label className="manager-field">Project name<span className="manager-field-hint">Use a clear, recognizable name.</span><input required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="e.g. Facility Asset Tracker" /></label>
         <label className="manager-field">Description<span className="manager-field-hint">Add a short summary for your team.</span><input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="What is this project about?" /></label>
@@ -143,7 +150,17 @@ export const ProjectManagerPage: React.FC = () => {
           {users.filter((entry) => entry.role.toLowerCase() === 'team member').map((entry) => <option key={entry.id} value={entry.id}>{entry.fullName} · {entry.role}</option>)}
         </select></label>
         </div>
-        <div className="manager-form-actions"><button className="manager-secondary" type="button" onClick={() => setShowForm(false)}>Cancel</button><button className="manager-primary" type="submit">{editingId ? 'Save changes' : 'Create project'}</button></div>
+        <div className="manager-form-actions">
+          <button className="manager-secondary" type="button" disabled={isSaving} onClick={() => setShowForm(false)}>Cancel</button>
+          <button className="manager-primary manager-save-button" type="submit" disabled={isSaving}>
+            {isSaving && <span className="manager-sync-spinner" aria-hidden="true" />}
+            {isSaving ? (editingId ? 'Saving changes...' : 'Creating project...') : (editingId ? 'Save changes' : 'Create project')}
+          </button>
+        </div>
+        {isSaving && <div className="manager-sync-status" role="status" aria-live="polite">
+          <span className="manager-sync-pulse" aria-hidden="true" />
+          <span>{editingId ? 'Saving project changes...' : 'Creating project and preparing its workspace...'}</span>
+        </div>}
       </form>}
       <section className="manager-panel">
         <div className="manager-selector-row"><label className="manager-field">Project<select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>

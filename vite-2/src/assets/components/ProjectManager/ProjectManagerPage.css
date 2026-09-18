@@ -81,6 +81,11 @@
   cursor: pointer;
 }
 
+.manager-close:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
 .manager-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -163,6 +168,60 @@
 .manager-primary:disabled {
   opacity: .55;
   cursor: not-allowed;
+}
+
+.manager-save-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 155px;
+}
+
+.manager-sync-spinner,
+.manager-sync-pulse {
+  display: inline-block;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.manager-sync-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, .4);
+  border-top-color: #fff;
+  animation: manager-spin .75s linear infinite;
+}
+
+.manager-sync-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -10px;
+  padding: 11px 13px;
+  border: 1px solid color-mix(in srgb, #d97706 25%, var(--border));
+  border-radius: 9px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, #d97706 8%, var(--surface));
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.manager-sync-pulse {
+  width: 9px;
+  height: 9px;
+  background: #d97706;
+  box-shadow: 0 0 0 0 rgba(217, 119, 6, .45);
+  animation: manager-pulse 1.5s ease-out infinite;
+}
+
+@keyframes manager-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes manager-pulse {
+  70% { box-shadow: 0 0 0 7px rgba(217, 119, 6, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
 }
 
 .manager-secondary {
