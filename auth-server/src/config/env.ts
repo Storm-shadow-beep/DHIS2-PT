@@ -74,6 +74,7 @@ export const env = {
   passwordResetExpiryMinutes: Number(process.env.PASSWORD_RESET_EXPIRY_MINUTES) || 60,
   projectManagerEmail: process.env.PROJECT_MANAGER_EMAIL?.trim() || '',
   projectManagerPassword: process.env.PROJECT_MANAGER_PASSWORD || '',
+  skipSeed: process.env.SKIP_SEED === 'true',
   adminEmail: (process.env.ADMIN_EMAIL?.trim() || 'admin@example.org').toLowerCase(),
   adminPassword: process.env.ADMIN_PASSWORD || 'admin@123',
   registrationRateLimitWindowMs: Number(process.env.REGISTRATION_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,

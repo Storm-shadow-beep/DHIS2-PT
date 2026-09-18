@@ -425,12 +425,26 @@ export const ProjectsPage: React.FC = () => {
   const loadProjects = async () => {
     setLoadError('');
     const { projects: apiProjects } = await getProjectsApi();
-    const loadedProjects = await Promise.all(apiProjects.map(async (apiProject) => {
-      const [{ phases }, { phases: requirementGroups }, { documents }] = await Promise.all([
-        getProjectPhasesApi(apiProject.id),
-        getProjectRequirementsApi(apiProject.id),
-        getProjectDocumentsApi(apiProject.id),
-      ]);
+    // Load details per project independently: one project's failing
+    // phases/documents request must not hide the other assigned projects.
+    const loadedProjects = (await Promise.all(apiProjects.map(async (apiProject) => {
+      let phases: Awaited<ReturnType<typeof getProjectPhasesApi>>['phases'] = [];
+      let requirementGroups: Awaited<ReturnType<typeof getProjectRequirementsApi>>['phases'] = [];
+      let documents: Awaited<ReturnType<typeof getProjectDocumentsApi>>['documents'] = [];
+      try {
+        const [phaseResult, requirementResult, documentResult] = await Promise.all([
+          getProjectPhasesApi(apiProject.id),
+          getProjectRequirementsApi(apiProject.id),
+          getProjectDocumentsApi(apiProject.id),
+        ]);
+        phases = phaseResult.phases;
+        requirementGroups = requirementResult.phases;
+        documents = documentResult.documents;
+      } catch (detailError) {
+        // Keep the assigned project visible with empty details rather than
+        // dropping the whole list when a detail endpoint denies/fails.
+        console.error(`Could not load details for project ${apiProject.id}:`, detailError);
+      }
       const phaseDocuments = phases.map((phase) => ({
         id: phase.id,
         name: phase.displayName || phase.name,
@@ -480,7 +494,7 @@ export const ProjectsPage: React.FC = () => {
         status: apiProject.status === 'completed' ? 'closed' : 'active',
         phases: phaseDocuments,
       } satisfies Project;
-    }));
+    })));
     setProjects(loadedProjects);
     setIsLoading(false);
   };

@@ -40,7 +40,9 @@ export const canAccessProject = (
         context.isProjectManager || context.isActiveMember
       );
     case 'member':
-      return hasPermission(context, 'project:view') && context.isActiveMember;
+      return hasPermission(context, 'project:view') && (
+        context.isActiveMember || context.isProjectManager
+      );
     case 'manage':
       return hasPermission(context, 'project:manage') && context.isProjectManager;
     case 'phaseManage':

@@ -410,6 +410,10 @@ export const createProject = async (
   if (managerId) {
     assertUuid(managerId, 'project manager id');
     await assertActiveProjectManager(managerId);
+    // Keep the manager visible as an active member so manager-only projects
+    // still satisfy member-level guards (e.g. document upload) and show up
+    // consistently for the manager alongside explicitly assigned members.
+    if (!memberIds.includes(managerId)) memberIds.push(managerId);
   }
   if (managerId === null && !actorIsAdministrator) {
     throw projectServiceError(

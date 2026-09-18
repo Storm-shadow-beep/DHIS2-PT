@@ -3,9 +3,28 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { db } from './index';
 import { roles, userRoles, users } from './schema';
 import { env } from '../config/env';
-import { ROLE_NAMES } from '../types/auth.types';
+import { ROLE_NAMES, type RoleName } from '../types/auth.types';
+
+/**
+ * Presence guard for shared databases (e.g. one Neon DB used by several
+ * developers). Returns true when any user already holds the given global
+ * role, in which case seeding is skipped instead of inserting duplicates.
+ */
+const globalRoleHolderExists = async (roleName: RoleName): Promise<boolean> => {
+  const [holder] = await db
+    .select({ id: userRoles.id })
+    .from(userRoles)
+    .innerJoin(roles, eq(roles.id, userRoles.roleId))
+    .where(and(eq(roles.name, roleName), isNull(userRoles.projectId)))
+    .limit(1);
+  return Boolean(holder);
+};
 
 export async function seedDefaultProjectManager(): Promise<void> {
+  if (await globalRoleHolderExists(ROLE_NAMES.PROJECT_MANAGER)) {
+    console.log('[auth-service] a project manager already exists, skipping project manager seed');
+    return;
+  }
   if (!env.projectManagerEmail && !env.projectManagerPassword) return;
   if (!env.projectManagerEmail || !env.projectManagerPassword) {
     throw new Error('PROJECT_MANAGER_EMAIL and PROJECT_MANAGER_PASSWORD must be configured together');
@@ -39,14 +58,24 @@ export async function seedDefaultProjectManager(): Promise<void> {
 
     if (!manager) {
       const passwordHash = await bcrypt.hash(env.projectManagerPassword, env.bcryptSaltRounds);
-      [manager] = await tx
+      // onConflictDoNothing covers concurrent startups racing the
+      // check-then-insert above (unique users.email); fall back to a
+      // re-select so the role grant below still applies to the winner.
+      const [inserted] = await tx
         .insert(users)
         .values({
           fullName: 'Default Project Manager',
           email,
           passwordHash,
         })
+        .onConflictDoNothing()
         .returning({ id: users.id });
+      manager = inserted ?? (await tx
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1))[0];
+      if (!manager) throw new Error('Project manager seed lost a concurrent insert, retry startup');
     }
 
     const [existingRole] = await tx
@@ -78,6 +107,10 @@ function isWeakPassword(password: string): boolean {
 }
 
 export async function seedDefaultAdmin(): Promise<void> {
+  if (await globalRoleHolderExists(ROLE_NAMES.ADMINISTRATOR)) {
+    console.log('[auth-service] an administrator already exists, skipping admin seed');
+    return;
+  }
   const email = env.adminEmail.trim().toLowerCase();
   const password = env.adminPassword;
 
@@ -111,14 +144,22 @@ export async function seedDefaultAdmin(): Promise<void> {
 
     if (!admin) {
       const passwordHash = await bcrypt.hash(password, env.bcryptSaltRounds);
-      [admin] = await tx
+      // Race-safe per the project manager seed above.
+      const [inserted] = await tx
         .insert(users)
         .values({
           fullName: 'Default Administrator',
           email,
           passwordHash,
         })
+        .onConflictDoNothing()
         .returning({ id: users.id });
+      admin = inserted ?? (await tx
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1))[0];
+      if (!admin) throw new Error('Admin seed lost a concurrent insert, retry startup');
     }
 
     const [existingRole] = await tx
