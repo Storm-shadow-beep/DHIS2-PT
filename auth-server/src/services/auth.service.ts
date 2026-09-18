@@ -357,23 +357,20 @@ export async function resetPassword(input: { token: string; newPassword: string 
   });
 }
 
-export async function changePassword(input: {
-  userId: string;
-  currentPassword: string;
-  newPassword: string;
-}): Promise<void> {
+const assertStrongNewPassword = (newPassword: string): void => {
   if (
-    !input.currentPassword ||
-    input.newPassword.length < 8 ||
-    !/[A-Za-z]/.test(input.newPassword) ||
-    !/\d/.test(input.newPassword)
+    newPassword.length < 8 ||
+    !/[A-Za-z]/.test(newPassword) ||
+    !/\d/.test(newPassword)
   ) {
     throw httpError(
       'New password must be at least 8 characters and contain letters and numbers',
       400,
     );
   }
+};
 
+const verifyCurrentPassword = async (userId: string, currentPassword: string): Promise<string> => {
   const [user] = await db
     .select({
       id: users.id,
@@ -381,17 +378,45 @@ export async function changePassword(input: {
       isActive: users.isActive,
     })
     .from(users)
-    .where(eq(users.id, input.userId))
+    .where(eq(users.id, userId))
     .limit(1);
 
   if (!user || !user.isActive) throw httpError('Not authenticated', 401);
 
-  const currentPasswordValid = await bcrypt.compare(input.currentPassword, user.passwordHash);
+  const currentPasswordValid = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!currentPasswordValid) throw httpError('Current password is incorrect', 400);
+  return user.id;
+};
+
+/**
+ * Step 1 of the OTP-guarded password change: validates the request without
+ * mutating anything. The controller issues the verification code afterwards.
+ */
+export async function requestPasswordChange(input: {
+  userId: string;
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  if (!input.currentPassword) throw httpError('Current password is incorrect', 400);
+  assertStrongNewPassword(input.newPassword);
+  await verifyCurrentPassword(input.userId, input.currentPassword);
 
   if (input.currentPassword === input.newPassword) {
     throw httpError('New password must be different from the current password', 400);
   }
+}
+
+/**
+ * Step 2 of the OTP-guarded password change: persists the new password and
+ * revokes all refresh sessions (the user signs in again afterwards). The
+ * caller (controller) validates the request and consumes the OTP challenge
+ * first; OTP verification lives in otp.service to avoid a service cycle.
+ */
+export async function applyPasswordChange(input: {
+  userId: string;
+  newPassword: string;
+}): Promise<void> {
+  assertStrongNewPassword(input.newPassword);
 
   const now = new Date();
   const passwordHash = await bcrypt.hash(input.newPassword, env.bcryptSaltRounds);
@@ -399,11 +424,11 @@ export async function changePassword(input: {
     await tx
       .update(users)
       .set({ passwordHash, updatedAt: now })
-      .where(eq(users.id, user.id));
+      .where(eq(users.id, input.userId));
     await tx
       .update(refreshTokens)
       .set({ revokedAt: now })
-      .where(and(eq(refreshTokens.userId, user.id), isNull(refreshTokens.revokedAt)));
+      .where(and(eq(refreshTokens.userId, input.userId), isNull(refreshTokens.revokedAt)));
   });
 }
 

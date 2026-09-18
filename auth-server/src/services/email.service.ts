@@ -74,6 +74,23 @@ export function sendLoginOtpEmail(input: {
   });
 }
 
+export function sendPasswordChangeOtpEmail(input: {
+  to: string;
+  code: string;
+  expiresInMinutes: number;
+}): Promise<void> {
+  return sendTextEmail({
+    to: input.to,
+    subject: 'Confirm your password change',
+    text: [
+      `Your Project Management Software verification code is ${input.code}.`,
+      `Enter this code to confirm your password change. It expires in ${input.expiresInMinutes} minutes.`,
+      'If you did not request a password change, change your password immediately and contact your administrator.',
+    ].join('\n\n'),
+    fileSuffix: 'password-change-otp',
+  });
+}
+
 export function sendPasswordResetEmail(input: {
   to: string;
   resetLink: string;

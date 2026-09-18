@@ -155,13 +155,72 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
     return;
   }
 
-  await authService.changePassword({
+  // Step 1: validate without mutating, then send the verification code.
+  await authService.requestPasswordChange({
     userId: req.user.sub,
     currentPassword: currentPassword ?? '',
     newPassword: newPassword ?? '',
   });
+  const challenge = await otpService.createPasswordChangeChallenge(req.user.sub, {
+    userAgent: req.get('user-agent'),
+    ipAddress: req.ip,
+  });
+  res.json({
+    message: 'Verification code sent to your email',
+    requiresOtp: true,
+    ...challenge,
+  });
+});
+
+export const verifyPasswordChange = asyncHandler(async (req: Request, res: Response) => {
+  const { challengeId, code, currentPassword, newPassword } = req.body as {
+    challengeId?: string;
+    code?: string;
+    currentPassword?: string;
+    newPassword?: string;
+  };
+
+  if (!req.user) {
+    res.status(401).json({ message: 'Not authenticated' });
+    return;
+  }
+  if (!challengeId) {
+    res.status(400).json({ message: 'Verification session is required.' });
+    return;
+  }
+
+  // Step 2: re-validate the credentials, consume the code, then apply.
+  await authService.requestPasswordChange({
+    userId: req.user.sub,
+    currentPassword: currentPassword ?? '',
+    newPassword: newPassword ?? '',
+  });
+  await otpService.verifyPasswordChangeChallenge(challengeId, code ?? '', req.user.sub);
+  await authService.applyPasswordChange({
+    userId: req.user.sub,
+    newPassword: newPassword ?? '',
+  });
   clearRefreshCookie(res);
   res.json({ message: 'Password changed successfully. Please sign in again.' });
+});
+
+export const resendPasswordChangeOtp = asyncHandler(async (req: Request, res: Response) => {
+  const { challengeId } = req.body as { challengeId?: string };
+
+  if (!req.user) {
+    res.status(401).json({ message: 'Not authenticated' });
+    return;
+  }
+  if (!challengeId) {
+    res.status(400).json({ message: 'Verification session is required.' });
+    return;
+  }
+
+  const challenge = await otpService.resendPasswordChangeChallenge(challengeId, {
+    userAgent: req.get('user-agent'),
+    ipAddress: req.ip,
+  }, req.user.sub);
+  res.json({ message: 'Verification code sent to your email', requiresOtp: true, ...challenge });
 });
 
 export const me = asyncHandler(async (req: Request, res: Response) => {

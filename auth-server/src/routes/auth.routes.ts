@@ -64,7 +64,11 @@ router.post('/logout-other-sessions', protect, authController.logoutOtherSession
 
 // Public registration creates a Team Member account. Privileged role assignment remains administrative.
 router.post('/register', registrationLimiter, authController.register);
+// Password change is OTP-guarded: POST /change-password validates and sends
+// the code, POST /change-password/verify confirms it and applies the change.
 router.post('/change-password', protect, authController.changePassword);
+router.post('/change-password/verify', protect, otpLimiter, authController.verifyPasswordChange);
+router.post('/change-password/resend-otp', protect, otpLimiter, authController.resendPasswordChangeOtp);
 router.patch('/me', protect, authController.updateProfile);
 
 export default router;
