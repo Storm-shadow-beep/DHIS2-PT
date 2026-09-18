@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { hasRole } from '../auth/authorization';
-import { ROLE_NAMES } from '../services/authApi';
 import {
   type ApiDocument,
   type ApiPhase,
@@ -12,7 +10,6 @@ import {
   getProjectPhasesApi,
   getProjectsApi,
   uploadProjectDocumentApi,
-  reviewProjectDocumentApi,
 } from '../services/projectApi';
 import { downloadProjectDriveFileApi } from '../services/projectApi';
 import './DocumentsPage.css';
@@ -25,7 +22,6 @@ interface DocumentView extends ApiDocument {
 const statusLabel = (status: string): string => {
   if (status === 'approved') return 'Approved';
   if (status === 'rejected' || status === 'needs_revision') return 'Needs Revision';
-  if (status === 'submitted') return 'Awaiting Approval';
   return 'Uploaded';
 };
 
@@ -140,20 +136,6 @@ export const DocumentsPage: React.FC = () => {
     }
   };
 
-  const handleReview = async (decision: 'approved' | 'needs_revision') => {
-    if (!project || !activeDocument) return;
-    try {
-      setError('');
-      const result = await reviewProjectDocumentApi(String(project.id), activeDocument.id, decision);
-      setDocuments((current) => current.map((item) => item.id === result.document.id
-        ? { ...item, ...result.document }
-        : item));
-      window.dispatchEvent(new CustomEvent('pms:documents-updated'));
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Could not review document.');
-    }
-  };
-
   if (loading) return <div className="documents-empty-state"><h2>Loading documents...</h2><p>Retrieving the selected project documents.</p></div>;
   if (error && !project) return <div className="documents-empty-state"><h2>Could not load documents</h2><p>{error}</p></div>;
   if (!project) return <div className="documents-empty-state"><h2>No project selected</h2><p>Create a project or select one from the Projects page.</p></div>;
@@ -181,7 +163,7 @@ export const DocumentsPage: React.FC = () => {
       </div>}
       <div className="documents-layout">
         <aside className="documents-sidebar"><div className="documents-sidebar-header">Documents <span>{documents.length}</span></div>{documents.length === 0 ? <p className="documents-empty-copy">No documents submitted yet.</p> : documents.map((document) => <button key={document.id} className={`document-select-card ${activeDocument?.id === document.id ? 'active' : ''}`} onClick={() => setSelectedDocumentId(document.id)}><div className="document-card-head"><h3>{document.name}</h3><span className={`status-badge ${statusLabel(document.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(document.status)}</span></div><div className="document-card-meta"><span className="phase-badge">{document.phaseName}</span><span>{document.uploaderName ?? 'Unknown user'}</span></div></button>)}</aside>
-        <section className="documents-preview">{activeDocument ? <><div className="preview-toolbar"><span className={`status-badge ${statusLabel(activeDocument.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(activeDocument.status)}</span><div className="document-preview-actions">{activeDocument.status === 'approved' && activeDocument.driveFileId && <button className="download-button" onClick={() => void downloadProjectDriveFileApi(String(project.id), activeDocument.driveFileId!, activeDocument.name)}>Download file</button>}{activeDocument.status === 'submitted' && hasRole(user, ROLE_NAMES.PROJECT_MANAGER) && <><button className="download-button" onClick={() => void handleReview('needs_revision')}>Request revision</button><button className="download-button" onClick={() => void handleReview('approved')}>Approve &amp; save to Drive</button></>}{activeDocument.uploadedBy === user?.id && <button className="delete-button" onClick={() => void handleDelete(activeDocument)}>Delete document</button>}</div></div><div className="preview-body"><div className="preview-topline"><p className="preview-kicker">Quick glance</p><span className="phase-badge">{activeDocument.phaseName}</span></div><h2>{activeDocument.name}</h2><div className="info-grid"><div className="info-block"><span className="info-label">Submitted by</span><strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong></div><div className="info-block"><span className="info-label">Uploaded</span><strong>{new Date(activeDocument.uploadedAt).toLocaleDateString()}</strong></div><div className="info-block"><span className="info-label">File type</span><strong>{activeDocument.fileType}</strong></div><div className="info-block"><span className="info-label">Version</span><strong>v{activeDocument.currentVersion}</strong></div></div><div className="preview-notes"><h3>Submission details</h3><p>This document was submitted during the <strong>{activeDocument.phaseName}</strong> phase for the <strong>{project.name}</strong> project by <strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong>.</p></div></div></> : <div className="documents-empty-state"><h3>No document selected</h3><p>Upload a document or choose an existing item from the list.</p></div>}</section>
+        <section className="documents-preview">{activeDocument ? <><div className="preview-toolbar"><span className={`status-badge ${statusLabel(activeDocument.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(activeDocument.status)}</span><div className="document-preview-actions"><button className="download-button" onClick={() => void downloadProjectDriveFileApi(String(project.id), activeDocument.driveFileId, activeDocument.name)}>Download file</button>{activeDocument.uploadedBy === user?.id && <button className="delete-button" onClick={() => void handleDelete(activeDocument)}>Delete document</button>}</div></div><div className="preview-body"><div className="preview-topline"><p className="preview-kicker">Quick glance</p><span className="phase-badge">{activeDocument.phaseName}</span></div><h2>{activeDocument.name}</h2><div className="info-grid"><div className="info-block"><span className="info-label">Submitted by</span><strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong></div><div className="info-block"><span className="info-label">Uploaded</span><strong>{new Date(activeDocument.uploadedAt).toLocaleDateString()}</strong></div><div className="info-block"><span className="info-label">File type</span><strong>{activeDocument.fileType}</strong></div><div className="info-block"><span className="info-label">Version</span><strong>v{activeDocument.currentVersion}</strong></div></div><div className="preview-notes"><h3>Submission details</h3><p>This document was submitted during the <strong>{activeDocument.phaseName}</strong> phase for the <strong>{project.name}</strong> project by <strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong>.</p></div></div></> : <div className="documents-empty-state"><h3>No document selected</h3><p>Upload a document or choose an existing item from the list.</p></div>}</section>
       </div>
     </div>
   );

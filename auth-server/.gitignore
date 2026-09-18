@@ -6,3 +6,4 @@ dist/
 coverage/
 .local-mailbox/
 dhis2-pt-8478a1bcd03b.json
+private_key.json

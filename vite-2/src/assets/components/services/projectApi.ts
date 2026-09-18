@@ -62,8 +62,8 @@ export interface ApiDocument {
   projectId: string;
   phaseId: string;
   name: string;
-  driveFileId: string | null;
-  driveLink: string | null;
+  driveFileId: string;
+  driveLink: string;
   currentVersion: number;
   status: string;
   uploadedBy: string;
@@ -90,18 +90,6 @@ export const uploadProjectDocumentApi = async (
 };
 export const deleteProjectDocumentApi = (projectId: string | number, documentId: string) =>
   request<{ message: string }>(`/api/projects/${projectId}/documents/${documentId}`, { method: 'DELETE' });
-export const reviewProjectDocumentApi = (
-  projectId: string | number,
-  documentId: string,
-  decision: 'approved' | 'needs_revision',
-) => request<{ message: string; document: ApiDocument }>(
-  `/api/projects/${projectId}/documents/${documentId}/approvals`,
-  {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ decision }),
-  },
-);
 export const downloadProjectDriveFileApi = async (projectId: string | number, fileId: string, filename: string): Promise<void> => {
   const response = await authFetch(`/api/projects/${projectId}/drive/files/${fileId}/content`);
   if (!response.ok) {
