@@ -11,6 +11,7 @@ export {
   requireProjectManager,
   requireProjectMember,
   requireNonAdministrator,
+  requireAdministrator,
 } from './authorization.middleware';
 
 export const authorize =

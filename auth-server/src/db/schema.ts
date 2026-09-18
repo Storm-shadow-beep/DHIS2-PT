@@ -278,6 +278,7 @@ export const documentApprovals = pgTable('document_approvals', {
 export const projectReports = pgTable('project_reports', {
   id: uuid('id').primaryKey().defaultRandom(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  phaseId: uuid('phase_id').notNull().references(() => projectPhases.id, { onDelete: 'cascade' }),
   submittedBy: uuid('submitted_by').notNull().references(() => users.id),
   title: varchar('title', { length: 200 }).notNull(),
   body: text('body').notNull(),

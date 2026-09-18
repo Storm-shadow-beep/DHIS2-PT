@@ -225,7 +225,7 @@ export const LoginPage: React.FC = () => {
       clearLockout();
       setAuthenticatedUser(user);
       setSuccessMessage('Login successful!');
-      await new Promise((resolve) => window.setTimeout(resolve, Math.max(0, 1100 - (Date.now() - transitionStartedAt))));
+      await new Promise((resolve) => window.setTimeout(resolve, Math.max(0, 900 - (Date.now() - transitionStartedAt))));
       navigate(hasPermission(user, PERMISSION_NAMES.USER_MANAGE) ? '/admin' : '/dashboard');
     } catch (err: unknown) {
       setShowAuthTransition(false);
@@ -267,7 +267,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="login-container">
-      {showAuthTransition && <TransitionOverlay message="Signing you in..." detail="Preparing your secure workspace." />}
+      {showAuthTransition && <TransitionOverlay message="Signing you in..." detail="Preparing your workspace." />}
       <div className="left-pane">
         <div className="brand-header">
           <div className="brand-icon" />

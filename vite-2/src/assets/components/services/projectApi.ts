@@ -38,8 +38,13 @@ export interface ApiRequirement {
 }
 
 export interface ApiReport {
-  id: number;
+  id: string;
+  projectId: string;
+  phaseId: string;
   project: string;
+  phase: string;
+  submittedBy: string;
+  submittedById: string;
   title: string;
   body: string;
   submittedAt: string;
@@ -175,10 +180,12 @@ export const deleteRequirementApi = (projectId: string | number, requirementId: 
   method: 'DELETE',
 });
 
-/** Report routes are not present in the current backend; retained for compatibility. */
 export const getReportsApi = () => request<{ reports: ApiReport[] }>('/api/reports');
-export const submitReportApi = (projectId: string | number, title: string, body: string) => request<{ id: string | number }>('/api/reports', {
+export const submitReportApi = (projectId: string | number, phaseId: string, title: string, body: string) => request<{ report: { id: string } }>('/api/reports', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ projectId, title, body }),
+  body: JSON.stringify({ projectId, phaseId, title, body }),
+});
+export const deleteReportApi = (reportId: string) => request<{ message: string }>(`/api/reports/${reportId}`, {
+  method: 'DELETE',
 });

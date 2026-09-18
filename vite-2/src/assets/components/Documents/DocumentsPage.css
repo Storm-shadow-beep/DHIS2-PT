@@ -221,6 +221,10 @@
 }
 
 .download-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   background: #0f2537;
   color: #ffffff;
   padding: 9px 14px;
@@ -248,6 +252,24 @@
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.download-button:disabled {
+  cursor: wait;
+  opacity: .72;
+}
+
+.download-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255, 255, 255, .45);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: document-download-spin .7s linear infinite;
+}
+
+@keyframes document-download-spin {
+  to { transform: rotate(360deg); }
 }
 
 .document-modal-backdrop {
