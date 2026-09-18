@@ -58,7 +58,9 @@ export const canAccessDocument = (
   context: DocumentPolicyContext,
   accessType: DocumentAccessType,
 ): boolean => {
-  if (context.isAdministrator) return true;
+  // Administrators can audit documents, but document submission, deletion,
+  // and review remain scoped to the users who perform those workflows.
+  if (context.isAdministrator) return accessType === 'view';
 
   switch (accessType) {
     case 'view':

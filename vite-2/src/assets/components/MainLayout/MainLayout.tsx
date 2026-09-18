@@ -4,6 +4,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { PERMISSION_NAMES } from '../services/authApi';
 import { getRoleDisplayName, hasPermission } from '../auth/authorization';
 import { useAuth } from '../auth/AuthContext';
+import { TransitionOverlay } from '../TransitionOverlay/TransitionOverlay';
 import './MainLayout.css';
 
 export const MainLayout: React.FC = () => {
@@ -18,18 +19,18 @@ export const MainLayout: React.FC = () => {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
+      await new Promise((resolve) => window.setTimeout(resolve, 1100));
       await signOut();
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
-      setTimeout(() => {
-        navigate('/');
-      }, 800);
+      navigate('/');
     }
   };
 
   return (
     <div className="dashboard-layout">
+      {isLoggingOut && <TransitionOverlay message="Signing you out..." detail="Closing your secure session." />}
       {/* Navigation Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-brand">

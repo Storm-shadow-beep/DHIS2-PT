@@ -4,6 +4,7 @@ import { AuthApiError, loginApi, PERMISSION_NAMES, resendOtpApi, verifyOtpApi } 
 import type { OtpChallenge } from '.././services/authApi';
 import { hasPermission } from '../auth/authorization';
 import { useAuth } from '../auth/AuthContext';
+import { TransitionOverlay } from '../TransitionOverlay/TransitionOverlay';
 import './LoginPage.css';
 
 interface LoginCredentials {
@@ -29,6 +30,7 @@ export const LoginPage: React.FC = () => {
   const [otpChallenge, setOtpChallenge] = useState<OtpChallenge | null>(null);
   const [otpCode, setOtpCode] = useState('');
   const [resendInSeconds, setResendInSeconds] = useState(0);
+  const [showAuthTransition, setShowAuthTransition] = useState(false);
 
   // Paused state after the server-side rate limit (5 login attempts) is hit.
   // lockoutUntil is an epoch-ms timestamp; while in the future the Sign in
@@ -91,10 +93,10 @@ export const LoginPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (status === 'authenticated' && authenticatedUser) {
+    if (!showAuthTransition && status === 'authenticated' && authenticatedUser) {
       navigate(hasPermission(authenticatedUser, PERMISSION_NAMES.USER_MANAGE) ? '/admin' : '/dashboard');
     }
-  }, [authenticatedUser, navigate, status]);
+  }, [authenticatedUser, navigate, showAuthTransition, status]);
 
   useEffect(() => {
     if (!otpChallenge) return undefined;
@@ -216,19 +218,26 @@ export const LoginPage: React.FC = () => {
     }
 
     setLoading(true);
+    const transitionStartedAt = Date.now();
+    setShowAuthTransition(true);
     try {
       const user = await verifyOtpApi(otpChallenge!.challengeId, otpCode, formData.rememberMe);
       clearLockout();
       setAuthenticatedUser(user);
       setSuccessMessage('Login successful!');
-      setTimeout(() => navigate(hasPermission(user, PERMISSION_NAMES.USER_MANAGE) ? '/admin' : '/dashboard'), 500);
+      await new Promise((resolve) => window.setTimeout(resolve, Math.max(0, 1100 - (Date.now() - transitionStartedAt))));
+      navigate(hasPermission(user, PERMISSION_NAMES.USER_MANAGE) ? '/admin' : '/dashboard');
     } catch (err: unknown) {
+      setShowAuthTransition(false);
       if (err instanceof AuthApiError && err.status === 429) {
         enterLockout(err.retryAfterSeconds);
         setErrorMessage('Too many verification attempts. Buttons are paused — please wait before trying again.');
       } else {
         setErrorMessage(err instanceof Error ? err.message : 'Verification failed.');
       }
+      setLoading(false);
+    }
+    finally {
       setLoading(false);
     }
   };
@@ -258,6 +267,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="login-container">
+      {showAuthTransition && <TransitionOverlay message="Signing you in..." detail="Preparing your secure workspace." />}
       <div className="left-pane">
         <div className="brand-header">
           <div className="brand-icon" />
@@ -269,23 +279,12 @@ export const LoginPage: React.FC = () => {
 
         <div className="hero-content">
           <h1 className="hero-title">
-            Project documentation,<br />
-            organised by phase.
+            Manage projects,<br />
+            deliver with confidence.
           </h1>
           <p className="hero-description">
-            Log in to track phase milestones, access Google Drive assets, and manage system deliverables from initial draft to final approval <span className="underlined-text"> track,</span> structure and check status for your projects.
+            Organise project work, share documents with the right people, and monitor progress from planning through completion — all in one secure workspace.
           </p>
-
-          <div className="stats-row">
-            <div className="stat-box">
-              <span className="stat-number">5</span>
-              <span className="stat-label">standard<br />phases</span>
-            </div>
-            <div className="stat-box">
-              <span className="stat-number">Google Drive</span>
-              <span className="stat-label">Centralized Server</span>
-            </div>
-          </div>
         </div>
       </div>
 

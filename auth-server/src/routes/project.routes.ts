@@ -11,6 +11,7 @@ import {
   requirePermission,
   requireProjectAccess,
   requireProjectManager,
+  requireNonAdministrator,
 } from '../middleware/authorize.middleware';
 
 const router = Router();
@@ -122,6 +123,7 @@ router.get(
 router.post(
   '/:projectId/documents',
   requirePermission('document:upload'),
+  requireNonAdministrator,
   requireProjectAccess('member'),
   documentsController.documentUpload.single('file'),
   documentsController.uploadDocument,
@@ -135,6 +137,7 @@ router.get(
 router.delete(
   '/:projectId/documents/:documentId',
   requirePermission('document:delete'),
+  requireNonAdministrator,
   requireDocumentAccess('delete', 'documentId'),
   documentsController.deleteDocument,
 );
@@ -147,6 +150,7 @@ router.get(
 router.post(
   '/:projectId/documents/:documentId/versions',
   requirePermission('document:upload'),
+  requireNonAdministrator,
   requireDocumentAccess('upload', 'documentId'),
   documentsController.documentUpload.single('file'),
   documentsController.uploadVersion,
@@ -160,6 +164,7 @@ router.get(
 router.post(
   '/:projectId/documents/:documentId/approvals',
   requirePermission('document:approve'),
+  requireNonAdministrator,
   requireDocumentAccess('approve', 'documentId'),
   documentsController.reviewDocument,
 );
