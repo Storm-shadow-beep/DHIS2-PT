@@ -11,7 +11,7 @@ import {
 import { assertUuidWith } from '../utils/validation';
 import { assertProjectExists } from './shared-guards';
 import { recordAudit } from './audit.service';
-import { trashFile, uploadFile } from './drive.service';
+import { ensureProjectStructure, trashFile, uploadFile } from './drive.service';
 import {
   documentError,
   resolveApproval,
@@ -214,6 +214,10 @@ export const createDocument = async (
     await loadCategoryForPhase(input.phaseId, input.documentCategoryId);
     documentCategoryId = input.documentCategoryId;
   }
+
+  // Repair missing project/phase mappings before the direct Drive upload.
+  // This also handles projects created while Drive provisioning was unavailable.
+  await ensureProjectStructure(projectId, actorId);
 
   // Drive upload first: the documents table requires driveFileId/driveLink,
   // so metadata-only rows are intentionally unsupported (Drive-backed only).
