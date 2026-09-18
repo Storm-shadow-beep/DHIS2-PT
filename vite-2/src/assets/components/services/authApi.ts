@@ -264,15 +264,38 @@ export const logoutApi = async (): Promise<void> => {
   }
   };
 
-  export const changePasswordApi = async (currentPassword: string, newPassword: string): Promise<void> => {
+  export const requestPasswordChangeApi = async (currentPassword: string, newPassword: string): Promise<OtpChallenge> => {
     const response = await authFetch('/api/auth/change-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ currentPassword, newPassword }),
     });
+    return parseResponse<OtpChallenge>(response);
+  };
+
+  export const verifyPasswordChangeApi = async (
+    challengeId: string,
+    code: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> => {
+    const response = await authFetch('/api/auth/change-password/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challengeId, code, currentPassword, newPassword }),
+    });
     await parseResponse<{ message: string }>(response);
     clearAccessToken(true);
-};
+  };
+
+  export const resendPasswordChangeOtpApi = async (challengeId: string): Promise<OtpChallenge> => {
+    const response = await authFetch('/api/auth/change-password/resend-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challengeId }),
+    });
+    return parseResponse<OtpChallenge>(response);
+  };
 
 export const updateProfileApi = async (input: {
   fullName?: string;

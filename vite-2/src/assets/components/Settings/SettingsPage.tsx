@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import {
   AuthApiError,
-  changePasswordApi,
+  requestPasswordChangeApi,
+  resendPasswordChangeOtpApi,
+  verifyPasswordChangeApi,
   logoutOtherSessionsApi,
   updateProfileApi,
 } from '../services/authApi';
+import type { OtpChallenge } from '../services/authApi';
 import { getRoleDisplayName } from '../auth/authorization';
 import './SettingsPage.css';
 import { PageLoading } from '../PageLoading/PageLoading';
@@ -119,6 +122,9 @@ const SettingsActionPage: React.FC<{ action: SettingsAction }> = ({ action }) =>
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
   const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
+  const [passwordChallenge, setPasswordChallenge] = useState<OtpChallenge | null>(null);
+  const [passwordOtpCode, setPasswordOtpCode] = useState('');
+  const [resendInSeconds, setResendInSeconds] = useState(0);
   const [displayName, setDisplayName] = useState(user?.fullName ?? '');
   const [picture, setPicture] = useState(user?.profilePicture ?? '');
   const [cropSource, setCropSource] = useState<string | null>(null);
@@ -128,6 +134,85 @@ const SettingsActionPage: React.FC<{ action: SettingsAction }> = ({ action }) =>
   const [fileInputKey, setFileInputKey] = useState(0);
 
   if (!user) return <div className="settings-page"><PageLoading message="Loading account settings..." /></div>;
+  useEffect(() => {
+    if (!passwordChallenge) return undefined;
+    const updateCountdown = () => {
+      setResendInSeconds(Math.max(0, Math.ceil((new Date(passwordChallenge.resendAvailableAt).getTime() - Date.now()) / 1000)));
+    };
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, [passwordChallenge]);
+
+  if (!user) return <div className="settings-page"><p>Loading account settings...</p></div>;
+
+  const validatePasswords = (): boolean => {
+    if (!passwords.current || passwords.next.length < 8 || passwords.next !== passwords.confirm) {
+      setStatus('Enter your current password and a matching new password (at least 8 characters).');
+      return false;
+    }
+    return true;
+  };
+
+  const handleRequestPasswordChange = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (saving || !validatePasswords()) return;
+    setSaving(true);
+    setStatus('');
+    try {
+      const challenge = await requestPasswordChangeApi(passwords.current, passwords.next);
+      setPasswordChallenge(challenge);
+      setPasswordOtpCode('');
+      setStatus('A verification code was sent to your email. Enter it below to confirm the change.');
+    } catch (error) {
+      setStatus(errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleVerifyPasswordChange = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (saving || !passwordChallenge) return;
+    if (!/^\d{6}$/.test(passwordOtpCode)) {
+      setStatus('Enter the six-digit verification code.');
+      return;
+    }
+    if (!validatePasswords()) return;
+    setSaving(true);
+    setStatus('');
+    try {
+      await verifyPasswordChangeApi(passwordChallenge.challengeId, passwordOtpCode, passwords.current, passwords.next);
+      setStatus('Password updated. Signing you out...');
+      await signOut();
+    } catch (error) {
+      setStatus(errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleResendPasswordOtp = async () => {
+    if (!passwordChallenge || resendInSeconds > 0 || saving) return;
+    setSaving(true);
+    setStatus('');
+    try {
+      const challenge = await resendPasswordChangeOtpApi(passwordChallenge.challengeId);
+      setPasswordChallenge(challenge);
+      setPasswordOtpCode('');
+      setStatus('A new verification code was sent to your email.');
+    } catch (error) {
+      setStatus(errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const restartPasswordChange = () => {
+    setPasswordChallenge(null);
+    setPasswordOtpCode('');
+    setStatus('');
+  };
 
   const run = async (callback: () => Promise<void>) => {
     setSaving(true);
@@ -195,11 +280,22 @@ const SettingsActionPage: React.FC<{ action: SettingsAction }> = ({ action }) =>
       <button className="settings-back-button" type="button" onClick={() => navigate('/settings')}>← Back to settings</button>
       <header className="settings-header"><p className="eyebrow">Account settings</p><h1>{title}</h1><p>{action === 'password' ? 'Use a strong password you do not reuse elsewhere.' : action === 'name' ? 'Your display name is visible throughout the system.' : 'Your picture is shown in your profile card and to administrators.'}</p></header>
       <section className="settings-card settings-detail-card">
-        {action === 'password' && <form onSubmit={(event) => { event.preventDefault(); void run(async () => { if (!passwords.current || passwords.next.length < 8 || passwords.next !== passwords.confirm) throw new Error('Enter your current password and a matching new password (at least 8 characters).'); await changePasswordApi(passwords.current, passwords.next); await signOut(); }); }}>
+        {action === 'password' && !passwordChallenge && <form onSubmit={handleRequestPasswordChange}>
           <label>Current password<input required type="password" value={passwords.current} onChange={(e) => setPasswords({ ...passwords, current: e.target.value })} /></label>
           <label>New password<input required type="password" value={passwords.next} onChange={(e) => setPasswords({ ...passwords, next: e.target.value })} /></label>
           <label>Confirm new password<input required type="password" value={passwords.confirm} onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })} /></label>
-          <button className="settings-button" disabled={saving}>{saving ? 'Updating...' : 'Update password'}</button>
+          <button className="settings-button" disabled={saving}>{saving ? 'Sending code...' : 'Continue'}</button>
+        </form>}
+        {action === 'password' && passwordChallenge && <form onSubmit={handleVerifyPasswordChange}>
+          <p className="settings-muted">A six-digit verification code was sent to {user.email}. It expires soon.</p>
+          <label>Verification code<input required inputMode="numeric" maxLength={6} placeholder="Enter the 6-digit code" value={passwordOtpCode} onChange={(e) => setPasswordOtpCode(e.target.value.trim())} /></label>
+          <button className="settings-button" disabled={saving}>{saving ? 'Verifying...' : 'Verify and update password'}</button>
+          <div className="settings-otp-actions">
+            <button className="settings-button secondary" type="button" onClick={() => void handleResendPasswordOtp()} disabled={saving || resendInSeconds > 0}>
+              {resendInSeconds > 0 ? `Resend code in ${resendInSeconds}s` : 'Resend code'}
+            </button>
+            <button className="settings-button secondary" type="button" onClick={restartPasswordChange} disabled={saving}>Change passwords</button>
+          </div>
         </form>}
         {action === 'name' && <form onSubmit={(event) => { event.preventDefault(); void run(async () => {
           const nextName = displayName.trim();

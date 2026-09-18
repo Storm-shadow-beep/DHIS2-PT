@@ -249,6 +249,13 @@
   color: #9a5b0b;
 }
 
+.settings-otp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .settings-status {
   color: var(--text-muted);
   font-size: 13px;
