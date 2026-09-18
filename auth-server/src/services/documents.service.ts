@@ -37,8 +37,8 @@ export interface DocumentResponse {
   phaseId: string;
   documentCategoryId: string | null;
   name: string;
-  driveFileId: string | null;
-  driveLink: string | null;
+  driveFileId: string;
+  driveLink: string;
   currentVersion: number;
   status: string;
   uploadedBy: string;
@@ -51,7 +51,7 @@ export interface DocumentVersionResponse {
   id: string;
   documentId: string;
   versionNumber: number;
-  driveFileId: string | null;
+  driveFileId: string;
   uploadedBy: string;
   uploadedAt: Date;
   notes: string | null;
@@ -168,25 +168,7 @@ export const getDocument = async (
   assertDocumentUuid(projectId, 'project id');
   assertDocumentUuid(documentId, 'document id');
   await assertProjectExists(db, projectId);
-  const [document] = await db
-    .select({
-      id: documents.id,
-      projectId: documents.projectId,
-      phaseId: documents.phaseId,
-      documentCategoryId: documents.documentCategoryId,
-      name: documents.name,
-      driveFileId: documents.driveFileId,
-      driveLink: documents.driveLink,
-      currentVersion: documents.currentVersion,
-      status: documents.status,
-      uploadedBy: documents.uploadedBy,
-      uploadedAt: documents.uploadedAt,
-      updatedAt: documents.updatedAt,
-    })
-    .from(documents)
-    .where(and(eq(documents.id, documentId), eq(documents.projectId, projectId)))
-    .limit(1);
-  if (!document) throw documentError('Document not found.', 404, 'DOCUMENT_NOT_FOUND');
+  const document = await loadDocumentForProject(projectId, documentId);
 
   const [uploader] = await db
     .select({ fullName: users.fullName })
@@ -233,11 +215,26 @@ export const createDocument = async (
     documentCategoryId = input.documentCategoryId;
   }
 
+  // Drive upload first: the documents table requires driveFileId/driveLink,
+  // so metadata-only rows are intentionally unsupported (Drive-backed only).
+  const driveResult = await uploadFile({
+    projectId,
+    phaseId: input.phaseId,
+    filename: input.filename,
+    mimeType: input.mimeType,
+    buffer: input.buffer,
+    actorId,
+  });
   const name = input.name === undefined || input.name === null || input.name === ''
-    ? validateDocumentName(input.filename)
+    ? validateDocumentName(driveResult.name)
     : validateDocumentName(input.name);
+  const driveLink = driveResult.webViewLink
+    ?? driveResult.webContentLink
+    ?? `https://drive.google.com/file/d/${driveResult.driveFileId}/view`;
 
-  const created = await db.transaction(async (tx) => {
+  let created;
+  try {
+    created = await db.transaction(async (tx) => {
       const [doc] = await tx
         .insert(documents)
         .values({
@@ -245,9 +242,8 @@ export const createDocument = async (
           phaseId: input.phaseId as string,
           documentCategoryId,
           name,
-          pendingFile: input.buffer,
-          pendingMimeType: input.mimeType,
-          pendingFilename: input.filename,
+          driveFileId: driveResult.driveFileId,
+          driveLink,
           currentVersion: 1,
           status: 'submitted',
           uploadedBy: actorId,
@@ -256,10 +252,23 @@ export const createDocument = async (
       await tx.insert(documentVersions).values({
         documentId: doc.id,
         versionNumber: 1,
+        driveFileId: driveResult.driveFileId,
         uploadedBy: actorId,
       });
       return doc;
-  });
+    });
+  } catch (error) {
+    // The Drive file is already live but the metadata write failed — surface
+    // a stable error and log the orphan id for operator cleanup.
+    console.error(
+      `[documents:create] metadata write failed for Drive file ${driveResult.driveFileId}: ${(error as Error).message.slice(0, 200)}`,
+    );
+    throw documentError(
+      'File reached Drive but document metadata could not be saved.',
+      502,
+      'DOCUMENT_PERSIST_FAILED',
+    );
+  }
 
   await recordAudit({
     userId: actorId,
@@ -271,7 +280,7 @@ export const createDocument = async (
       phaseId: input.phaseId,
       documentCategoryId,
       name,
-      storage: 'postgresql_pending_approval',
+      driveFileId: driveResult.driveFileId,
     },
   });
 
@@ -311,15 +320,23 @@ export const createVersion = async (
   const nextVersion = resolveNewVersion(existing);
   const notes = validateVersionNotes(input.notes);
 
+  const driveResult = await uploadFile({
+    projectId,
+    phaseId: existing.phaseId,
+    filename: input.filename,
+    mimeType: input.mimeType,
+    buffer: input.buffer,
+    actorId,
+  });
+
   const outcome = await db.transaction(async (tx) => {
     const [updated] = await tx
       .update(documents)
       .set({
-        pendingFile: input.buffer,
-        pendingMimeType: input.mimeType,
-        pendingFilename: input.filename,
-        driveFileId: null,
-        driveLink: null,
+        driveFileId: driveResult.driveFileId,
+        driveLink: driveResult.webViewLink
+          ?? driveResult.webContentLink
+          ?? `https://drive.google.com/file/d/${driveResult.driveFileId}/view`,
         currentVersion: nextVersion,
         // A new version re-opens review regardless of the previous state.
         status: 'submitted',
@@ -332,6 +349,7 @@ export const createVersion = async (
       .values({
         documentId,
         versionNumber: nextVersion,
+        driveFileId: driveResult.driveFileId,
         uploadedBy: actorId,
         notes,
       })
@@ -347,7 +365,7 @@ export const createVersion = async (
     metadata: {
       projectId,
       versionNumber: nextVersion,
-      storage: 'postgresql_pending_approval',
+      driveFileId: driveResult.driveFileId,
     },
   });
 
@@ -385,21 +403,6 @@ export const recordApproval = async (
   await assertProjectExists(db, projectId);
   const existing = await loadDocumentForProject(projectId, documentId);
   const nextStatus = resolveApproval(existing, decision);
-  if (decision === 'approved' && (!existing.pendingFile || !existing.pendingFilename || !existing.pendingMimeType)) {
-    throw documentError('The pending document file is unavailable for approval.', 409, 'PENDING_FILE_UNAVAILABLE');
-  }
-
-  let driveResult: Awaited<ReturnType<typeof uploadFile>> | null = null;
-  if (decision === 'approved') {
-    driveResult = await uploadFile({
-      projectId,
-      phaseId: existing.phaseId,
-      filename: existing.pendingFilename!,
-      mimeType: existing.pendingMimeType!,
-      buffer: existing.pendingFile!,
-      actorId: reviewerId,
-    });
-  }
 
   const outcome = await db.transaction(async (tx) => {
     const [approval] = await tx
@@ -408,30 +411,9 @@ export const recordApproval = async (
       .returning();
     const [updated] = await tx
       .update(documents)
-      .set({
-        status: nextStatus,
-        driveFileId: driveResult?.driveFileId ?? existing.driveFileId,
-        driveLink: driveResult
-          ? driveResult.webViewLink
-            ?? driveResult.webContentLink
-            ?? `https://drive.google.com/file/d/${driveResult.driveFileId}/view`
-          : existing.driveLink,
-        pendingFile: decision === 'approved' ? null : existing.pendingFile,
-        pendingMimeType: decision === 'approved' ? null : existing.pendingMimeType,
-        pendingFilename: decision === 'approved' ? null : existing.pendingFilename,
-        updatedAt: new Date(),
-      })
+      .set({ status: nextStatus, updatedAt: new Date() })
       .where(eq(documents.id, documentId))
       .returning();
-    if (driveResult) {
-      await tx
-        .update(documentVersions)
-        .set({ driveFileId: driveResult.driveFileId })
-        .where(and(
-          eq(documentVersions.documentId, documentId),
-          eq(documentVersions.versionNumber, existing.currentVersion),
-        ));
-    }
     return { approval, updated };
   });
 
@@ -482,10 +464,8 @@ export const deleteDocument = async (
   // is unreachable; the outcome is reported, never thrown.
   let trashed = false;
   try {
-    if (existing.driveFileId) {
-      await trashFile(existing.driveFileId, actorId);
-      trashed = true;
-    }
+    await trashFile(existing.driveFileId, actorId);
+    trashed = true;
   } catch (error) {
     console.error(
       `[documents:delete] Drive trash failed for file ${existing.driveFileId}: ${(error as Error).message.slice(0, 200)}`,

@@ -160,7 +160,6 @@ router.get(
 router.post(
   '/:projectId/documents/:documentId/approvals',
   requirePermission('document:approve'),
-  requireProjectManager('projectId'),
   requireDocumentAccess('approve', 'documentId'),
   documentsController.reviewDocument,
 );
