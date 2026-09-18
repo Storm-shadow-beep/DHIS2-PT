@@ -107,9 +107,9 @@ export const RegisterPage: React.FC = () => {
         </div>
 
         <div className="hero-content">
-          <h1 className="hero-title">Account Registration</h1>
+          <h1 className="hero-title">Join your project workspace.</h1>
           <p className="hero-description">
-            Create your operational identity to start managing software phases, reviewing project deliverables, and tracking <span className="underlined-text">Drive</span> assets.
+            Create your account to collaborate with your team, manage project work, and keep important documents and updates organised.
           </p>
         </div>
       </div>
@@ -117,7 +117,7 @@ export const RegisterPage: React.FC = () => {
       <div className="right-pane">
         <div className="form-container">
           <h2 className="form-title">Create an account</h2>
-          <p className="form-subtitle">Enter your details to register as a team member.</p>
+          <p className="form-subtitle">Use your institutional details to join the project workspace.</p>
 
           {successMessage && <div className="success-box">{successMessage}</div>}
           {errorMessage && <div className="error-box">{errorMessage}</div>}
@@ -150,8 +150,8 @@ export const RegisterPage: React.FC = () => {
             </div>
 
             <div className="input-group">
-              <label className="input-label">Initial role</label>
-              <p className="form-subtitle">New accounts start as Team Member. An administrator assigns additional roles.</p>
+              <label className="input-label">Account role</label>
+              <p className="role-note">New accounts start as Team Members. An administrator can assign additional responsibilities when needed.</p>
             </div>
 
             <div className="input-group">
@@ -190,7 +190,7 @@ export const RegisterPage: React.FC = () => {
             </div>
 
             <button type="submit" disabled={loading} className="submit-button">
-              {loading ? 'Creating account...' : 'Register'}
+              {loading ? 'Creating account...' : 'Create account'}
             </button>
           </form>
 

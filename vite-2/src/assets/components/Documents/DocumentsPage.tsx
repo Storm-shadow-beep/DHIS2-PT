@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { hasRole } from '../auth/authorization';
+import { ROLE_NAMES } from '../services/authApi';
 import {
   type ApiDocument,
   type ApiPhase,
@@ -30,6 +32,7 @@ export const DocumentsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const requestedProjectId = searchParams.get('projectId');
   const { user } = useAuth();
+  const isAdministrator = hasRole(user, ROLE_NAMES.ADMINISTRATOR);
   const currentUserName = user?.fullName ?? 'Current User';
   const [project, setProject] = useState<ApiProject | null>(null);
   const [phases, setPhases] = useState<ApiPhase[]>([]);
@@ -153,12 +156,12 @@ export const DocumentsPage: React.FC = () => {
       <div className="documents-header">
         <div className="documents-heading-copy"><p className="documents-kicker">Project documents</p><h1>{project.name}</h1><p className="documents-subtitle">{project.subtitle ?? project.description ?? 'Manage project files by phase.'}</p><div className="documents-header-meta"><span>{documents.length} {documents.length === 1 ? 'document' : 'documents'}</span><span className="meta-dot" aria-hidden="true" /> <span>{phases.length} phases</span></div></div>
         <div className="documents-header-actions">
-          <button className="documents-submit-button" onClick={() => setShowUploadForm((current) => !current)}>{showUploadForm ? 'Close form' : '+ Submit new file'}</button>
+          {!isAdministrator && <button className="documents-submit-button" onClick={() => setShowUploadForm((current) => !current)}>{showUploadForm ? 'Close form' : '+ Submit new file'}</button>}
           <button className="documents-return" onClick={() => navigate(`/projects?projectId=${project.id}`)}>Back to project</button>
         </div>
       </div>
       {error && <p className="documents-error" role="alert">{error}</p>}
-      {showUploadForm && <div className="submit-document-panel">
+      {!isAdministrator && showUploadForm && <div className="submit-document-panel">
         <div className="submit-document-header"><div><p className="documents-kicker">New upload</p><h3>Submit file to project phase</h3></div><span className="current-user-tag">Submitting as {currentUserName}</span></div>
         <form className="submit-document-form" onSubmit={handleUpload}>
           <div className="upload-form-grid">
@@ -171,7 +174,7 @@ export const DocumentsPage: React.FC = () => {
       </div>}
       <div className="documents-layout">
         <aside className="documents-sidebar"><div className="documents-sidebar-header"><div><span className="sidebar-title">Documents</span><span className="sidebar-caption">Submitted project files</span></div><span className="document-count">{documents.length}</span></div>{documents.length === 0 ? <div className="documents-empty-copy"><span className="empty-icon" aria-hidden="true">+</span><strong>No documents yet</strong><span>Submitted files will appear here.</span></div> : documents.map((document) => <button key={document.id} className={`document-select-card ${activeDocument?.id === document.id ? 'active' : ''}`} onClick={() => setSelectedDocumentId(document.id)} aria-pressed={activeDocument?.id === document.id}><div className="document-card-head"><h3>{document.name}</h3><span className={`status-badge ${statusLabel(document.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(document.status)}</span></div><div className="document-card-meta"><span className="phase-badge">{document.phaseName}</span><span>{document.uploaderName ?? 'Unknown user'}</span></div></button>)}</aside>
-        <section className="documents-preview">{activeDocument ? <><div className="preview-toolbar"><span className={`status-badge ${statusLabel(activeDocument.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(activeDocument.status)}</span><div className="document-preview-actions"><button className="download-button" onClick={() => void downloadProjectDriveFileApi(String(project.id), activeDocument.driveFileId, activeDocument.name)}>Download file</button>{activeDocument.uploadedBy === user?.id && <button className="delete-button" onClick={() => setDocumentPendingDelete(activeDocument)}>Delete document</button>}</div></div><div className="preview-body"><div className="preview-topline"><p className="preview-kicker">Quick glance</p><span className="phase-badge">{activeDocument.phaseName}</span></div><h2>{activeDocument.name}</h2><div className="info-grid"><div className="info-block"><span className="info-label">Submitted by</span><strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong></div><div className="info-block"><span className="info-label">Uploaded</span><strong>{new Date(activeDocument.uploadedAt).toLocaleDateString()}</strong></div><div className="info-block"><span className="info-label">File type</span><strong>{activeDocument.fileType}</strong></div><div className="info-block"><span className="info-label">Version</span><strong>v{activeDocument.currentVersion}</strong></div></div><div className="preview-notes"><h3>Submission details</h3><p>This document was submitted during the <strong>{activeDocument.phaseName}</strong> phase for the <strong>{project.name}</strong> project by <strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong>.</p></div></div></> : <div className="documents-empty-state"><h3>No document selected</h3><p>Upload a document or choose an existing item from the list.</p></div>}</section>
+        <section className="documents-preview">{activeDocument ? <><div className="preview-toolbar"><span className={`status-badge ${statusLabel(activeDocument.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(activeDocument.status)}</span><div className="document-preview-actions"><button className="download-button" onClick={() => void downloadProjectDriveFileApi(String(project.id), activeDocument.driveFileId, activeDocument.name)}>Download file</button>{!isAdministrator && activeDocument.uploadedBy === user?.id && <button className="delete-button" onClick={() => setDocumentPendingDelete(activeDocument)}>Delete document</button>}</div></div><div className="preview-body"><div className="preview-topline"><p className="preview-kicker">Quick glance</p><span className="phase-badge">{activeDocument.phaseName}</span></div><h2>{activeDocument.name}</h2><div className="info-grid"><div className="info-block"><span className="info-label">Submitted by</span><strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong></div><div className="info-block"><span className="info-label">Uploaded</span><strong>{new Date(activeDocument.uploadedAt).toLocaleDateString()}</strong></div><div className="info-block"><span className="info-label">File type</span><strong>{activeDocument.fileType}</strong></div><div className="info-block"><span className="info-label">Version</span><strong>v{activeDocument.currentVersion}</strong></div></div><div className="preview-notes"><h3>Submission details</h3><p>This document was submitted during the <strong>{activeDocument.phaseName}</strong> phase for the <strong>{project.name}</strong> project by <strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong>.</p></div></div></> : <div className="documents-empty-state"><h3>No document selected</h3><p>Upload a document or choose an existing item from the list.</p></div>}</section>
       </div>
       {documentPendingDelete && <div className="document-modal-backdrop" role="presentation" onMouseDown={(event) => { if (!deletingDocument && event.target === event.currentTarget) setDocumentPendingDelete(null); }}>
         <section className="document-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-document-title">

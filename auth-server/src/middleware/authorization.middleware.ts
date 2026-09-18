@@ -4,6 +4,7 @@ import {
   assertProjectAccess,
   assertProjectManager,
   assertProjectMember,
+  getAuthorizationContext,
   normalizeResourceId,
 } from '../services/authorization.service';
 import { DocumentAccessType, ProjectAccessType } from '../services/authorization.policy';
@@ -90,6 +91,25 @@ export const requireProjectManager = (parameter = 'projectId'): RequestHandler =
 
 export const requireProjectMember = (parameter = 'projectId'): RequestHandler =>
   requireProjectAccess('member', parameter);
+
+export const requireNonAdministrator: RequestHandler = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> => {
+  const userId = requireUser(req, res);
+  if (!userId) return;
+  try {
+    const context = await getAuthorizationContext(userId);
+    if (context.globalRoles.includes('administrator')) {
+      res.status(403).json({ message: 'Administrators have read-only access to documents and reports.' });
+      return;
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const requireDocumentAccess = (
   accessType: DocumentAccessType,

@@ -102,6 +102,23 @@
   line-height: 1.6;
 }
 
+.report-download {
+  margin-top: 16px;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  color: #334155;
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.report-download:hover {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+
 .reports-empty {
   padding: 30px;
   border: 1px dashed #cbd5e1;

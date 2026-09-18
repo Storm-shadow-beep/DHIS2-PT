@@ -19,7 +19,7 @@ body,
 
 body {
   overflow-x: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-ui);
   background: var(--page-background);
   color: var(--text-primary);
 }
@@ -106,6 +106,7 @@ body {
 
 :root[data-theme='dark'] .documents-header h1,
 :root[data-theme='dark'] .documents-sidebar-header,
+:root[data-theme='dark'] .sidebar-title,
 :root[data-theme='dark'] .document-card-head h3,
 :root[data-theme='dark'] .documents-preview h2,
 :root[data-theme='dark'] .documents-preview h3 {
@@ -114,10 +115,19 @@ body {
 
 :root[data-theme='dark'] .documents-subtitle,
 :root[data-theme='dark'] .documents-kicker,
+:root[data-theme='dark'] .sidebar-caption,
 :root[data-theme='dark'] .document-card-meta,
 :root[data-theme='dark'] .documents-preview p,
 :root[data-theme='dark'] .documents-empty-state {
   color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .documents-empty-copy {
+  color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .documents-empty-copy strong {
+  color: var(--text-primary);
 }
 
 :root[data-theme='dark'] .documents-return,
@@ -218,6 +228,120 @@ body {
   background: var(--surface-subtle);
 }
 
+:root[data-theme='dark'] .projects-container {
+  background: var(--page-background);
+}
+
+:root[data-theme='dark'] .projects-filter-bar .pill-group,
+:root[data-theme='dark'] .projects-filter-bar .filter-select,
+:root[data-theme='dark'] .projects-filter-bar .projects-search-input,
+:root[data-theme='dark'] .project-details-card .metric-tile,
+:root[data-theme='dark'] .project-details-card .phase-panel,
+:root[data-theme='dark'] .project-details-card .phase-selector,
+:root[data-theme='dark'] .project-details-card .document-row,
+:root[data-theme='dark'] .project-details-card .empty-state,
+:root[data-theme='dark'] .project-details-card .tiny-btn {
+  background: var(--surface-subtle);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .projects-title,
+:root[data-theme='dark'] .detail-project-title,
+:root[data-theme='dark'] .project-details-card .metric-tile strong,
+:root[data-theme='dark'] .project-members-block h3,
+:root[data-theme='dark'] .phase-header-line h3,
+:root[data-theme='dark'] .document-main h4 {
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .projects-table-card .projects-table th,
+:root[data-theme='dark'] .projects-table-card .projects-table td,
+:root[data-theme='dark'] .project-subtitle,
+:root[data-theme='dark'] .detail-project-subtitle,
+:root[data-theme='dark'] .detail-kicker,
+:root[data-theme='dark'] .metric-label,
+:root[data-theme='dark'] .phase-caption,
+:root[data-theme='dark'] .document-meta-row,
+:root[data-theme='dark'] .empty-state {
+  color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .projects-table-card .projects-table th,
+:root[data-theme='dark'] .projects-table-card .projects-table td,
+:root[data-theme='dark'] .phase-selector {
+  border-color: var(--border);
+}
+
+:root[data-theme='dark'] .project-name {
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .projects-table-card .projects-table tbody tr:hover {
+  background: var(--surface-hover);
+}
+
+:root[data-theme='dark'] .selected-row {
+  background: rgba(30, 58, 95, .55);
+}
+
+:root[data-theme='dark'] .pill-btn,
+:root[data-theme='dark'] .filter-select,
+:root[data-theme='dark'] .projects-search-input,
+:root[data-theme='dark'] .phase-pill,
+:root[data-theme='dark'] .tiny-btn {
+  background: var(--surface-subtle);
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .pill-btn.active,
+:root[data-theme='dark'] .phase-pill.active {
+  background: #1e4d3a;
+  border-color: #22c55e;
+  color: #bbf7d0;
+}
+
+:root[data-theme='dark'] .member-pill {
+  background: #15352a;
+  border-color: #166534;
+  color: #bbf7d0;
+}
+
+:root[data-theme='dark'] .phase-content {
+  background: var(--surface);
+}
+
+:root[data-theme='dark'] .phase-status-tag.completed {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .phase-status-tag.upcoming {
+  background: #3b2815;
+  color: #fcd34d;
+}
+
+:root[data-theme='dark'] .document-tag {
+  background: #12344a;
+  color: #7dd3fc;
+}
+
+:root[data-theme='dark'] .status-badge.approved {
+  background: #15352a;
+  color: #bbf7d0;
+}
+
+:root[data-theme='dark'] .status-badge.needs-revision {
+  background: #3b2815;
+  color: #fcd34d;
+}
+
+:root[data-theme='dark'] .status-badge.uploaded {
+  background: #172f52;
+  color: #93c5fd;
+}
+
 :root[data-theme='dark'] .projects-table td,
 :root[data-theme='dark'] .projects-table th,
 :root[data-theme='dark'] .admin-table td,
@@ -291,4 +415,59 @@ a:focus-visible {
 img,
 svg {
   max-width: 100%;
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --font-ui: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-size-base: 14px;
+  --line-height-base: 1.5;
+}
+
+html {
+  font-size: 16px;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-ui);
+}
+
+body {
+  margin: 0;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+
+button,
+input,
+select,
+textarea {
+  font-size: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin-top: 0;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.2;
+  letter-spacing: -0.02em;
 }
