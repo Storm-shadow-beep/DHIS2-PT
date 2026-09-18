@@ -45,7 +45,7 @@ interface AuthorizationContext {
   permissions: string[];
 }
 
-const getAuthorizationContext = async (userId: string): Promise<AuthorizationContext> => {
+export const getAuthorizationContext = async (userId: string): Promise<AuthorizationContext> => {
   const [user] = await db
     .select({ id: users.id, isActive: users.isActive })
     .from(users)

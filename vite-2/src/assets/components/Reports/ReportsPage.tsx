@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import { hasPermission } from '../auth/authorization';
-import { PERMISSION_NAMES } from '../services/authApi';
+import { hasRole } from '../auth/authorization';
+import { ROLE_NAMES } from '../services/authApi';
 import { getProjectsApi, getReportsApi, submitReportApi } from '../services/projectApi';
 import './ReportsPage.css';
 
@@ -15,7 +15,7 @@ interface Report {
 
 export const ReportsPage: React.FC = () => {
   const { user } = useAuth();
-  const canPublish = hasPermission(user, PERMISSION_NAMES.PROJECT_MANAGE);
+  const canPublish = hasRole(user, ROLE_NAMES.PROJECT_MANAGER);
   const [reports, setReports] = useState<Report[]>([]);
   const [projects, setProjects] = useState<{ id: string | number; name: string }[]>([]);
   const [form, setForm] = useState({ projectId: '', title: '', body: '' });
@@ -48,6 +48,16 @@ export const ReportsPage: React.FC = () => {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The report could not be submitted.');
     }
+  };
+
+  const downloadReport = (report: Report) => {
+    const content = `${report.title}\n${report.project} · ${new Date(report.submittedAt).toLocaleDateString()}\n\n${report.body}`;
+    const blobUrl = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = blobUrl;
+    anchor.download = `${report.title.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'report'}.txt`;
+    anchor.click();
+    URL.revokeObjectURL(blobUrl);
   };
 
   return (
@@ -87,6 +97,7 @@ export const ReportsPage: React.FC = () => {
             <small>{report.project} · {new Date(report.submittedAt).toLocaleDateString()}</small>
             <h2>{report.title}</h2>
             <p>{report.body}</p>
+            <button className="report-download" type="button" onClick={() => downloadReport(report)}>Download report</button>
           </article>
         ))}
         {!reports.length && <div className="reports-empty">No reports yet.</div>}
