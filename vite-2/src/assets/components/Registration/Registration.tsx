@@ -196,9 +196,9 @@ export const RegisterPage: React.FC = () => {
 
           <p className="login-redirect">
             Already have an account?{' '}
-            <span onClick={() => navigate('/')} className="login-link">
+            <button type="button" onClick={() => navigate('/')} className="login-link">
               Sign in
-            </span>
+            </button>
           </p>
         </div>
       </div>

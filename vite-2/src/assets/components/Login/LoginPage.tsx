@@ -188,7 +188,7 @@ export const LoginPage: React.FC = () => {
       if (err instanceof AuthApiError && err.status === 429) {
         enterLockout(err.retryAfterSeconds);
         setErrorMessage(
-          `Too many sign-in attempts. The Sign in button is paused — try again in ${formatLockout(
+          `Too many sign-in attempts. The Sign in button is paused. Try again in ${formatLockout(
             err.retryAfterSeconds && Number.isFinite(err.retryAfterSeconds) && err.retryAfterSeconds > 0
               ? Math.ceil(err.retryAfterSeconds)
               : 15 * 60,
@@ -231,7 +231,7 @@ export const LoginPage: React.FC = () => {
       setShowAuthTransition(false);
       if (err instanceof AuthApiError && err.status === 429) {
         enterLockout(err.retryAfterSeconds);
-        setErrorMessage('Too many verification attempts. Buttons are paused — please wait before trying again.');
+        setErrorMessage('Too many verification attempts. Buttons are paused. Please wait before trying again.');
       } else {
         setErrorMessage(err instanceof Error ? err.message : 'Verification failed.');
       }
@@ -283,7 +283,7 @@ export const LoginPage: React.FC = () => {
             deliver with confidence.
           </h1>
           <p className="hero-description">
-            Organise project work, share documents with the right people, and monitor progress from planning through completion — all in one secure workspace.
+            Organise project work, share documents with the right people, and monitor progress from planning through completion. All in one secure workspace.
           </p>
         </div>
       </div>
@@ -323,9 +323,9 @@ export const LoginPage: React.FC = () => {
                 type="submit"
                 disabled={loading || isLocked}
                 className={`submit-button${isLocked ? ' is-paused' : ''}`}
-                title={isLocked ? `Paused — try again in ${formatLockout(lockoutRemaining)}` : undefined}
+                title={isLocked ? `Paused. Try again in ${formatLockout(lockoutRemaining)}` : undefined}
               >
-                {isLocked ? `Paused — try again in ${formatLockout(lockoutRemaining)}` : loading ? 'Verifying...' : 'Verify and sign in'}
+                {isLocked ? `Paused. Try again in ${formatLockout(lockoutRemaining)}` : loading ? 'Verifying...' : 'Verify and sign in'}
               </button>
               <button type="button" disabled={loading || isLocked || resendInSeconds > 0} className="secondary-button" onClick={handleResendOtp}>
                 {resendInSeconds > 0 ? `Resend code in ${resendInSeconds}s` : 'Resend code'}
@@ -338,9 +338,9 @@ export const LoginPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="login-form" noValidate>
             <p className="login-redirect">
               Don&apos;t have an account?{' '}
-              <span onClick={() => navigate('/register')} className="register-link">
+              <button type="button" onClick={() => navigate('/register')} className="register-link">
                 Register
-              </span>
+              </button>
             </p>
 
             <div className="input-group">
@@ -409,14 +409,14 @@ export const LoginPage: React.FC = () => {
               type="submit"
               disabled={loading || isLocked}
               className={`submit-button${isLocked ? ' is-paused' : ''}`}
-              title={isLocked ? `Paused — try again in ${formatLockout(lockoutRemaining)}` : undefined}
+              title={isLocked ? `Paused. Try again in ${formatLockout(lockoutRemaining)}` : undefined}
             >
-              {isLocked ? `Paused — try again in ${formatLockout(lockoutRemaining)}` : loading ? 'Signing in...' : 'Sign in'}
+              {isLocked ? `Paused. Try again in ${formatLockout(lockoutRemaining)}` : loading ? 'Signing in...' : 'Sign in'}
             </button>
             {failedAttempts > 0 && !isLocked && (
               <span className="otp-help" role="status">
                 {failedAttempts >= 5
-                  ? 'Limit reached — the next attempt may pause Sign in.'
+                  ? 'Limit reached. The next attempt may pause Sign in.'
                   : `${5 - failedAttempts} of 5 attempts remaining before Sign in pauses.`}
               </span>
             )}

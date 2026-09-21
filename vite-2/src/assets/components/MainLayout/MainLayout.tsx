@@ -86,10 +86,10 @@ export const MainLayout: React.FC = () => {
           <div className="user-profile-side">
             <div className="user-avatar">
               {user?.profilePicture
-                ? <img src={user.profilePicture} alt="" />
+                ? <img src={user.profilePicture} alt={`${user.fullName ?? 'User'} profile picture`} />
                 : (user?.fullName?.charAt(0).toUpperCase() || '?')}
             </div>
-            <span className="user-info-side">
+            <span className="user-info-side" role="status">
               {user ? <><strong>{user.fullName}</strong><small>{getRoleDisplayName(user)}</small></> : 'Loading user...'}
             </span>
             <button onClick={handleLogout} disabled={isLoggingOut} className="logout-btn">

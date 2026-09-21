@@ -117,6 +117,15 @@ export const DocumentsPage: React.FC = () => {
     setShowEditForm(false);
   }, [selectedDocumentId]);
 
+  useEffect(() => {
+    if (!documentPendingDelete) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDocumentPendingDelete(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [documentPendingDelete]);
+
   const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!project || !selectedFile || !uploadForm.phaseId) {

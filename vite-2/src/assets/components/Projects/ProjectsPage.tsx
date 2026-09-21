@@ -187,8 +187,8 @@ export const ProjectsPage: React.FC = () => {
 
   const handleSyncGoogleDrive = async (projectId: string) => {
     try {
-      console.log(`[Google Drive Sync API Call]: Project ID ${projectId}`);
-      alert(`Auto-sync requested for project: ${projectId}`);
+      // TODO: wire to real Google Drive sync API. Honest placeholder until then (R-26, R-38).
+      window.alert(`Google Drive sync is coming soon for project: ${projectId}`);
     } catch (error) {
       console.error('Error syncing Google Drive:', error);
     }
@@ -196,6 +196,7 @@ export const ProjectsPage: React.FC = () => {
 
   const handleLinkGoogleDrive = async (projectId: string) => {
     try {
+      // TODO: persist drive link via API instead of local-only state (R-26, R-38).
       setProjects((prev) => prev.map((project) => (project.id === projectId ? { ...project, driveLinked: true } : project)));
     } catch (error) {
       console.error('Error linking Google Drive:', error);
@@ -285,11 +286,25 @@ export const ProjectsPage: React.FC = () => {
                   <PageLoading message="Loading projects..." />
                 </td>
               </tr>
+            ) : filteredProjects.length === 0 ? (
+              <tr>
+                <td colSpan={6}>
+                  <p className="empty-state">No projects match these filters. Clear the search or choose a different filter.</p>
+                </td>
+              </tr>
             ) : filteredProjects.map((project) => (
               <tr
                 key={project.id}
                 className={selectedProjectId === project.id ? 'selected-row' : ''}
                 onClick={() => handleProjectSelect(project.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleProjectSelect(project.id);
+                  }
+                }}
+                tabIndex={0}
+                aria-selected={selectedProjectId === project.id}
               >
                 <td>
                   <div className="project-name">{project.name}</div>

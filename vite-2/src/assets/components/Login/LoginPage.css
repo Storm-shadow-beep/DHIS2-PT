@@ -212,6 +212,14 @@
   cursor: pointer;
 }
 
+button.register-link,
+button.login-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+}
+
 .login-redirect {
   margin: 0;
   text-align: center;
@@ -267,7 +275,7 @@
 
 .form-input:disabled {
   background-color: #f1f5f9;
-  color: #94a3b8;
+  color: #64748b;
   cursor: not-allowed;
 }
 
@@ -335,7 +343,7 @@ a.back-button {
   margin-top: 28px;
   text-align: center;
   font-size: 12px;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 @media (max-width: 1100px) {

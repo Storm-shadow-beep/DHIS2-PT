@@ -270,7 +270,7 @@ export const DashboardPage: React.FC = () => {
                   {topProjects.map((project) => (
                     <tr key={project.id}>
                       <td><strong>{project.name}</strong></td>
-                      <td>{project.client || '—'}</td>
+                      <td>{project.client || 'Not set'}</td>
                       <td>{project.currentPhase}</td>
                       <td>{project.documentationPercent}%</td>
                       <td>
