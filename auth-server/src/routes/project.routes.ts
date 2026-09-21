@@ -135,6 +135,13 @@ router.get(
   requireDocumentAccess('view', 'documentId'),
   documentsController.getDocument,
 );
+router.patch(
+  '/:projectId/documents/:documentId',
+  requirePermission('document:upload'),
+  requireNonAdministrator,
+  requireDocumentAccess('upload', 'documentId'),
+  documentsController.updateDocument,
+);
 router.delete(
   '/:projectId/documents/:documentId',
   requirePermission('document:delete'),

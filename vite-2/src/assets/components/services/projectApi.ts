@@ -5,6 +5,7 @@ export interface ApiProject {
   description?: string | null;
   name: string;
   subtitle?: string;
+  client?: string | null;
   status?: string;
   currentPhase?: string | null;
   driveFolderId?: string | null;
@@ -32,6 +33,7 @@ export interface ApiRequirement {
   name: string;
   isMandatory: boolean;
   sortOrder: number;
+  dueDate: string | null;
   documentCount: number;
   createdAt: string;
   updatedAt: string;
@@ -66,6 +68,7 @@ export interface ApiDocument {
   id: string;
   projectId: string;
   phaseId: string;
+  documentCategoryId?: string | null;
   name: string;
   driveFileId: string;
   driveLink: string;
@@ -95,6 +98,15 @@ export const uploadProjectDocumentApi = async (
 };
 export const deleteProjectDocumentApi = (projectId: string | number, documentId: string) =>
   request<{ message: string }>(`/api/projects/${projectId}/documents/${documentId}`, { method: 'DELETE' });
+export const updateProjectDocumentApi = (
+  projectId: string | number,
+  documentId: string,
+  input: { name?: string; phaseId?: string; documentCategoryId?: string | null },
+) => request<{ message: string; document: ApiDocument }>(`/api/projects/${projectId}/documents/${documentId}`, {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(input),
+});
 export const downloadProjectDriveFileApi = async (projectId: string | number, fileId: string, filename: string): Promise<void> => {
   const response = await authFetch(`/api/projects/${projectId}/drive/files/${fileId}/content`);
   if (!response.ok) {
@@ -166,12 +178,12 @@ export const getPhaseRequirementsApi = (projectId: string | number, phaseId: str
 export const ensureProjectRequirementsApi = (id: string | number) => request<{ phases: ApiRequirementsGroup[]; generated: boolean }>(`/api/projects/${id}/requirements/ensure`, {
   method: 'POST',
 });
-export const createRequirementApi = (projectId: string | number, phaseId: string, input: { name: string; isMandatory?: boolean; sortOrder?: number }) => request<{ requirement: ApiRequirement }>(`/api/projects/${projectId}/phases/${phaseId}/requirements`, {
+export const createRequirementApi = (projectId: string | number, phaseId: string, input: { name: string; isMandatory?: boolean; sortOrder?: number; dueDate?: string | null }) => request<{ requirement: ApiRequirement }>(`/api/projects/${projectId}/phases/${phaseId}/requirements`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(input),
 });
-export const updateRequirementApi = (projectId: string | number, requirementId: string, input: Partial<Pick<ApiRequirement, 'name' | 'isMandatory' | 'sortOrder'>>) => request<{ requirement: ApiRequirement }>(`/api/projects/${projectId}/requirements/${requirementId}`, {
+export const updateRequirementApi = (projectId: string | number, requirementId: string, input: Partial<Pick<ApiRequirement, 'name' | 'isMandatory' | 'sortOrder' | 'dueDate'>>) => request<{ requirement: ApiRequirement }>(`/api/projects/${projectId}/requirements/${requirementId}`, {
   method: 'PATCH',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(input),

@@ -43,7 +43,7 @@ export const createRequirement = asyncHandler(async (req: Request, res: Response
   const requirement = await requirementsService.createRequirement(
     paramAsString(req.params.projectId),
     paramAsString(req.params.phaseId),
-    { name: body.name, isMandatory: body.isMandatory, sortOrder: body.sortOrder },
+    { name: body.name, isMandatory: body.isMandatory, sortOrder: body.sortOrder, dueDate: body.dueDate },
     req.user!.sub,
   );
   res.status(201).json({ message: 'Requirement created', requirement });
@@ -54,7 +54,7 @@ export const updateRequirement = asyncHandler(async (req: Request, res: Response
   const requirement = await requirementsService.updateRequirement(
     paramAsString(req.params.projectId),
     paramAsString(req.params.requirementId),
-    { name: body.name, isMandatory: body.isMandatory, sortOrder: body.sortOrder },
+    { name: body.name, isMandatory: body.isMandatory, sortOrder: body.sortOrder, dueDate: body.dueDate },
     req.user!.sub,
   );
   res.json({ message: 'Requirement updated', requirement });

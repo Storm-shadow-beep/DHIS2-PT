@@ -11,7 +11,7 @@ import {
 import { assertUuidWith } from '../utils/validation';
 import { assertProjectExists } from './shared-guards';
 import { recordAudit } from './audit.service';
-import { ensureProjectStructure, trashFile, uploadFile } from './drive.service';
+import { ensureProjectStructure, renameFile, trashFile, uploadFile } from './drive.service';
 import {
   documentError,
   resolveApproval,
@@ -448,6 +448,103 @@ export const listApprovals = async (
     .where(eq(documentApprovals.documentId, documentId))
     .orderBy(desc(documentApprovals.decidedAt));
   return { approvals: rows };
+};
+
+export interface UpdateDocumentInput {
+  name?: unknown;
+  phaseId?: unknown;
+  documentCategoryId?: unknown;
+}
+
+/**
+ * Update document metadata (rename and/or reassign phase + requirement).
+ * Drive rename runs first so a Drive failure never leaves the database
+ * claiming a name Drive doesn't have. Reassignment validates the target
+ * phase belongs to the project and the requirement belongs to that phase;
+ * an explicit null/empty requirement unlinks the document.
+ */
+export const updateDocument = async (
+  projectId: string,
+  documentId: string,
+  input: UpdateDocumentInput,
+  actorId: string,
+): Promise<{ document: DocumentResponse }> => {
+  assertDocumentUuid(projectId, 'project id');
+  assertDocumentUuid(documentId, 'document id');
+  assertDocumentUuid(actorId, 'actor id');
+  await assertProjectExists(db, projectId);
+  const existing = await loadDocumentForProject(projectId, documentId);
+
+  if (
+    input.name === undefined &&
+    input.phaseId === undefined &&
+    input.documentCategoryId === undefined
+  ) {
+    throw documentError('At least one field is required', 400, 'VALIDATION_ERROR');
+  }
+
+  const updates: Partial<typeof documents.$inferInsert> = { updatedAt: new Date() };
+  if (input.name !== undefined) {
+    const name = validateDocumentName(input.name);
+    if (name !== existing.name) {
+      await renameFile(existing.driveFileId, name, actorId);
+      updates.name = name;
+    }
+  }
+
+  if (input.phaseId !== undefined) {
+    if (typeof input.phaseId !== 'string' || input.phaseId.length === 0) {
+      throw documentError('phaseId must be a UUID', 400, 'VALIDATION_ERROR');
+    }
+    assertDocumentUuid(input.phaseId, 'phase id');
+    await loadPhaseForProject(projectId, input.phaseId);
+    updates.phaseId = input.phaseId;
+  }
+  const targetPhaseId = (updates.phaseId as string | undefined) ?? existing.phaseId;
+
+  if (input.documentCategoryId !== undefined) {
+    if (input.documentCategoryId === null || input.documentCategoryId === '') {
+      updates.documentCategoryId = null;
+    } else {
+      if (typeof input.documentCategoryId !== 'string') {
+        throw documentError('documentCategoryId must be a UUID', 400, 'VALIDATION_ERROR');
+      }
+      assertDocumentUuid(input.documentCategoryId, 'requirement id');
+      await loadCategoryForPhase(targetPhaseId, input.documentCategoryId);
+      updates.documentCategoryId = input.documentCategoryId;
+    }
+  } else if (updates.phaseId !== undefined && existing.documentCategoryId) {
+    // Moving phases without choosing a requirement must not leave a
+    // category pointer aimed at the old phase — verify or unlink.
+    const [category] = await db
+      .select({ phaseId: documentCategories.phaseId })
+      .from(documentCategories)
+      .where(eq(documentCategories.id, existing.documentCategoryId))
+      .limit(1);
+    if (!category || category.phaseId !== targetPhaseId) {
+      updates.documentCategoryId = null;
+    }
+  }
+
+  const [updated] = await db
+    .update(documents)
+    .set(updates)
+    .where(eq(documents.id, documentId))
+    .returning({ id: documents.id });
+  if (!updated) throw documentError('Document not found.', 404, 'DOCUMENT_NOT_FOUND');
+
+  await recordAudit({
+    userId: actorId,
+    action: 'document.updated',
+    entityType: 'document',
+    entityId: documentId,
+    metadata: {
+      projectId,
+      fields: Object.keys(updates).filter((key) => key !== 'updatedAt'),
+    },
+  });
+
+  return getDocument(projectId, documentId);
 };
 
 export const deleteDocument = async (

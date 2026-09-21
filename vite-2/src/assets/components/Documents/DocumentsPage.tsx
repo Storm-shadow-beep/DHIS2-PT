@@ -1,16 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { hasRole } from '../auth/authorization';
-import { ROLE_NAMES } from '../services/authApi';
+import { hasPermission, hasRole } from '../auth/authorization';
+import { PERMISSION_NAMES, ROLE_NAMES } from '../services/authApi';
 import {
   type ApiDocument,
   type ApiPhase,
   type ApiProject,
+  type ApiRequirement,
   deleteProjectDocumentApi,
+  getPhaseRequirementsApi,
   getProjectDocumentsApi,
   getProjectPhasesApi,
   getProjectsApi,
+  updateProjectDocumentApi,
   uploadProjectDocumentApi,
 } from '../services/projectApi';
 import { downloadProjectDriveFileApi } from '../services/projectApi';
@@ -34,6 +37,7 @@ export const DocumentsPage: React.FC = () => {
   const requestedProjectId = searchParams.get('projectId');
   const { user } = useAuth();
   const isAdministrator = hasRole(user, ROLE_NAMES.ADMINISTRATOR);
+  const canEditDocuments = !isAdministrator && hasPermission(user, PERMISSION_NAMES.DOCUMENT_UPLOAD);
   const currentUserName = user?.fullName ?? 'Current User';
   const [project, setProject] = useState<ApiProject | null>(null);
   const [phases, setPhases] = useState<ApiPhase[]>([]);
@@ -48,6 +52,11 @@ export const DocumentsPage: React.FC = () => {
   const [downloadingDocumentId, setDownloadingDocumentId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [documentPendingDelete, setDocumentPendingDelete] = useState<DocumentView | null>(null);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editForm, setEditForm] = useState({ name: '', phaseId: '', documentCategoryId: '' });
+  const [phaseRequirements, setPhaseRequirements] = useState<ApiRequirement[]>([]);
+  const [loadingRequirements, setLoadingRequirements] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const loadProject = async (projectId: string) => {
     const [{ projects: availableProjects }, { phases: nextPhases }, { documents: nextDocuments }] = await Promise.all([
@@ -104,6 +113,10 @@ export const DocumentsPage: React.FC = () => {
     setSelectedDocumentId((current) => documents.some((document) => document.id === current) ? current : documents[0]?.id ?? '');
   }, [documents]);
 
+  useEffect(() => {
+    setShowEditForm(false);
+  }, [selectedDocumentId]);
+
   const handleUpload = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!project || !selectedFile || !uploadForm.phaseId) {
@@ -149,6 +162,71 @@ export const DocumentsPage: React.FC = () => {
     }
   };
 
+  const openEditForm = (document: DocumentView) => {
+    setEditForm({
+      name: document.name,
+      phaseId: document.phaseId,
+      documentCategoryId: document.documentCategoryId ?? '',
+    });
+    setShowEditForm(true);
+  };
+
+  useEffect(() => {
+    if (!showEditForm || !project || !editForm.phaseId) {
+      setPhaseRequirements([]);
+      return;
+    }
+    let disposed = false;
+    setLoadingRequirements(true);
+    getPhaseRequirementsApi(String(project.id), editForm.phaseId)
+      .then((result) => { if (!disposed) setPhaseRequirements(result.requirements); })
+      .catch(() => { if (!disposed) setPhaseRequirements([]); })
+      .finally(() => { if (!disposed) setLoadingRequirements(false); });
+    return () => { disposed = true; };
+  }, [showEditForm, project, editForm.phaseId]);
+
+  const handleSaveEdit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!project || !activeDocument || savingEdit) return;
+    const trimmedName = editForm.name.trim();
+    if (!trimmedName) {
+      setError('Document title is required.');
+      return;
+    }
+    if (!editForm.phaseId) {
+      setError('Choose a phase for this document.');
+      return;
+    }
+    try {
+      setSavingEdit(true);
+      setError('');
+      const { document: updated } = await updateProjectDocumentApi(
+        String(project.id),
+        activeDocument.id,
+        {
+          name: trimmedName,
+          phaseId: editForm.phaseId,
+          documentCategoryId: editForm.documentCategoryId || null,
+        },
+      );
+      setDocuments((current) => current.map((item) => item.id === updated.id
+        ? {
+          ...updated,
+          phaseName: phases.find((phase) => phase.id === updated.phaseId)?.displayName
+            ?? phases.find((phase) => phase.id === updated.phaseId)?.name
+            ?? item.phaseName,
+          fileType: updated.name.split('.').pop()?.toUpperCase() ?? 'FILE',
+        }
+        : item));
+      setShowEditForm(false);
+      window.dispatchEvent(new CustomEvent('pms:documents-updated'));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Could not update document.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const handleDownload = async (document: DocumentView) => {
     if (!project || downloadingDocumentId) return;
     try {
@@ -176,6 +254,17 @@ export const DocumentsPage: React.FC = () => {
         </div>
       </div>
       {error && <p className="documents-error" role="alert">{error}</p>}
+      {canEditDocuments && showEditForm && activeDocument && <div className="submit-document-panel">
+        <div className="submit-document-header"><div><p className="documents-kicker">Edit details</p><h3>Rename or move this document</h3></div><span className="current-user-tag">v{activeDocument.currentVersion} · {statusLabel(activeDocument.status)}</span></div>
+        <form className="submit-document-form" onSubmit={handleSaveEdit}>
+          <div className="upload-form-grid">
+            <label className="upload-field"><span>Document title</span><input required value={editForm.name} onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))} /></label>
+            <label className="upload-field"><span>Phase</span><select required value={editForm.phaseId} onChange={(event) => setEditForm((current) => ({ ...current, phaseId: event.target.value, documentCategoryId: '' }))}>{phases.map((phase) => <option key={phase.id} value={phase.id}>{phase.displayName || phase.name}</option>)}</select></label>
+            <label className="upload-field"><span>Requirement</span><select value={editForm.documentCategoryId} disabled={loadingRequirements} onChange={(event) => setEditForm((current) => ({ ...current, documentCategoryId: event.target.value }))}><option value="">No requirement (unlinked)</option>{phaseRequirements.map((requirement) => <option key={requirement.id} value={requirement.id}>{requirement.name}</option>)}</select></label>
+          </div>
+          <div className="upload-actions-bar"><span className="upload-helper-text">Renaming also renames the file in Google Drive. Moving phases unlinks the requirement unless you pick one above.</span><div className="upload-button-row"><button type="button" className="upload-cancel-button" disabled={savingEdit} onClick={() => setShowEditForm(false)}>Cancel</button><button disabled={savingEdit} type="submit" className="upload-submit-button">{savingEdit ? <><span className="submit-spinner" aria-hidden="true" />Saving...</> : 'Save changes'}</button></div></div>
+        </form>
+      </div>}
       {!isAdministrator && showUploadForm && <div className="submit-document-panel">
         <div className="submit-document-header"><div><p className="documents-kicker">New upload</p><h3>Submit file to project phase</h3></div><span className="current-user-tag">Submitting as {currentUserName}</span></div>
         <form className="submit-document-form" onSubmit={handleUpload}>
@@ -189,7 +278,7 @@ export const DocumentsPage: React.FC = () => {
       </div>}
       <div className="documents-layout">
         <aside className="documents-sidebar"><div className="documents-sidebar-header"><div><span className="sidebar-title">Documents</span><span className="sidebar-caption">Submitted project files</span></div><span className="document-count">{documents.length}</span></div>{documents.length === 0 ? <div className="documents-empty-copy"><span className="empty-icon" aria-hidden="true">+</span><strong>No documents yet</strong><span>Submitted files will appear here.</span></div> : documents.map((document) => <button key={document.id} className={`document-select-card ${activeDocument?.id === document.id ? 'active' : ''}`} onClick={() => setSelectedDocumentId(document.id)} aria-pressed={activeDocument?.id === document.id}><div className="document-card-head"><h3>{document.name}</h3><span className={`status-badge ${statusLabel(document.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(document.status)}</span></div><div className="document-card-meta"><span className="phase-badge">{document.phaseName}</span><span>{document.uploaderName ?? 'Unknown user'}</span></div></button>)}</aside>
-        <section className="documents-preview">{activeDocument ? <><div className="preview-toolbar"><span className={`status-badge ${statusLabel(activeDocument.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(activeDocument.status)}</span><div className="document-preview-actions"><button className="download-button" disabled={downloadingDocumentId !== null} onClick={() => void handleDownload(activeDocument)}>{downloadingDocumentId === activeDocument.id ? <><span className="download-spinner" aria-hidden="true" />Downloading...</> : 'Download file'}</button>{!isAdministrator && activeDocument.uploadedBy === user?.id && <button className="delete-button" onClick={() => setDocumentPendingDelete(activeDocument)}>Delete document</button>}</div></div><div className="preview-body"><div className="preview-topline"><p className="preview-kicker">Quick glance</p><span className="phase-badge">{activeDocument.phaseName}</span></div><h2>{activeDocument.name}</h2><div className="info-grid"><div className="info-block"><span className="info-label">Submitted by</span><strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong></div><div className="info-block"><span className="info-label">Uploaded</span><strong>{new Date(activeDocument.uploadedAt).toLocaleDateString()}</strong></div><div className="info-block"><span className="info-label">File type</span><strong>{activeDocument.fileType}</strong></div><div className="info-block"><span className="info-label">Version</span><strong>v{activeDocument.currentVersion}</strong></div></div><div className="preview-notes"><h3>Submission details</h3><p>This document was submitted during the <strong>{activeDocument.phaseName}</strong> phase for the <strong>{project.name}</strong> project by <strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong>.</p></div></div></> : <div className="documents-empty-state"><h3>No document selected</h3><p>Upload a document or choose an existing item from the list.</p></div>}</section>
+        <section className="documents-preview">{activeDocument ? <><div className="preview-toolbar"><span className={`status-badge ${statusLabel(activeDocument.status).toLowerCase().replace(/\s+/g, '-')}`}>{statusLabel(activeDocument.status)}</span><div className="document-preview-actions">{activeDocument.driveLink && <a className="download-button documents-drive-link" href={activeDocument.driveLink} target="_blank" rel="noreferrer">Open in Drive</a>}<button className="download-button" disabled={downloadingDocumentId !== null} onClick={() => void handleDownload(activeDocument)}>{downloadingDocumentId === activeDocument.id ? <><span className="download-spinner" aria-hidden="true" />Downloading...</> : 'Download file'}</button>{canEditDocuments && <button className="documents-edit-button" onClick={() => (showEditForm ? setShowEditForm(false) : openEditForm(activeDocument))}>{showEditForm ? 'Close editor' : 'Edit details'}</button>}{!isAdministrator && activeDocument.uploadedBy === user?.id && <button className="delete-button" onClick={() => setDocumentPendingDelete(activeDocument)}>Delete document</button>}</div></div><div className="preview-body"><div className="preview-topline"><p className="preview-kicker">Quick glance</p><span className="phase-badge">{activeDocument.phaseName}</span></div><h2>{activeDocument.name}</h2><div className="info-grid"><div className="info-block"><span className="info-label">Submitted by</span><strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong></div><div className="info-block"><span className="info-label">Uploaded</span><strong>{new Date(activeDocument.uploadedAt).toLocaleDateString()}</strong></div><div className="info-block"><span className="info-label">File type</span><strong>{activeDocument.fileType}</strong></div><div className="info-block"><span className="info-label">Version</span><strong>v{activeDocument.currentVersion}</strong></div></div><div className="preview-notes"><h3>Submission details</h3><p>This document was submitted during the <strong>{activeDocument.phaseName}</strong> phase for the <strong>{project.name}</strong> project by <strong>{activeDocument.uploaderName ?? 'Unknown user'}</strong>.</p></div></div></> : <div className="documents-empty-state"><h3>No document selected</h3><p>Upload a document or choose an existing item from the list.</p></div>}</section>
       </div>
       {documentPendingDelete && <div className="document-modal-backdrop" role="presentation" onMouseDown={(event) => { if (!deletingDocument && event.target === event.currentTarget) setDocumentPendingDelete(null); }}>
         <section className="document-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-document-title">

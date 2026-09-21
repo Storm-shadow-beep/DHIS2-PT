@@ -501,6 +501,55 @@ export const trashFile = async (driveFileId: string, actorId?: string): Promise<
   }
 };
 
+/**
+ * Rename a Drive file (companion for document metadata updates).
+ * Throws stable Drive errors; callers decide whether rename failure is fatal.
+ */
+export const renameFile = async (
+  driveFileId: string,
+  name: string,
+  actorId?: string,
+): Promise<void> => {
+  try {
+    if (
+      typeof driveFileId !== 'string' ||
+      driveFileId.length === 0 ||
+      driveFileId.length > 255 ||
+      /[^A-Za-z0-9_-]/.test(driveFileId)
+    ) {
+      throw driveServiceError('Invalid file id', 400, 'VALIDATION_ERROR');
+    }
+    const cleanName = sanitizeFileName(name);
+    if (!isDriveConfigured()) throw driveServiceError('Drive integration is not configured', 500, 'DRIVE_NOT_CONFIGURED');
+
+    const drive = await getDriveClient().catch((error: unknown) => {
+      throw mapGoogleError('api:auth', error);
+    });
+
+    try {
+      await drive.files.update({
+        fileId: driveFileId,
+        requestBody: { name: cleanName },
+        fields: 'id, name',
+        supportsAllDrives: true,
+      });
+      await safeAudit({
+        userId: actorId,
+        action: 'drive.file.renamed',
+        entityType: 'drive_file',
+        entityId: driveFileId,
+        metadata: { driveFileId, name: cleanName },
+      });
+    } catch (error) {
+      if (error instanceof Error && 'statusCode' in error) throw error;
+      throw mapGoogleError('api:rename', error);
+    }
+  } catch (error) {
+    if (error instanceof Error && 'statusCode' in error) throw error;
+    throw mapGoogleError('rename:unknown', error);
+  }
+};
+
 export interface StreamResult {
   stream: Readable;
   name: string;

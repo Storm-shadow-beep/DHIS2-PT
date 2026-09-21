@@ -8,7 +8,11 @@ import './ReportsPage.css';
 
 export const ReportsPage: React.FC = () => {
   const { user } = useAuth();
-  const canPublish = hasRole(user, ROLE_NAMES.PROJECT_MANAGER) || hasRole(user, ROLE_NAMES.ADMINISTRATOR);
+  // Administrators oversee but never author: they keep report:view (see the
+  // published list) while the composer is reserved for project managers
+  // (the backend reportCreate policy is PM-only, and POST rejects admins).
+  const isAdministrator = hasRole(user, ROLE_NAMES.ADMINISTRATOR);
+  const canPublish = !isAdministrator && hasRole(user, ROLE_NAMES.PROJECT_MANAGER);
   const [reports, setReports] = useState<ApiReport[]>([]);
   const [projects, setProjects] = useState<{ id: string | number; name: string }[]>([]);
   const [phases, setPhases] = useState<ApiPhase[]>([]);
@@ -65,14 +69,26 @@ export const ReportsPage: React.FC = () => {
     }
   };
 
-  const downloadReport = (report: ApiReport) => {
-    const content = `${report.title}\n${report.project} · ${report.phase}\n\n${report.body}`;
-    const blobUrl = URL.createObjectURL(new Blob([content], { type: 'text/plain;charset=utf-8' }));
-    const anchor = document.createElement('a');
-    anchor.href = blobUrl;
-    anchor.download = `${report.title.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'report'}.txt`;
-    anchor.click();
-    URL.revokeObjectURL(blobUrl);
+  const downloadReport = async (report: ApiReport) => {
+    const slug = report.title.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'report';
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text(doc.splitTextToSize(report.title, 180), 14, 20);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    doc.text(`${report.project} · ${report.phase}`, 14, 32);
+    doc.text(
+      `Submitted by ${report.submittedBy} · ${new Date(report.submittedAt).toLocaleDateString()}`,
+      14,
+      38,
+    );
+    doc.setTextColor(0);
+    doc.setFontSize(12);
+    doc.text(doc.splitTextToSize(report.body, 180), 14, 48);
+    doc.save(`${slug}.pdf`);
   };
 
   if (loading) return <div className="reports-page"><PageLoading message="Loading project reports..." /></div>;
@@ -88,7 +104,7 @@ export const ReportsPage: React.FC = () => {
         {error && <p role="alert">{error}</p>}<button className="report-submit" type="submit" disabled={submitting}>{submitting ? 'Submitting report...' : 'Publish report'}</button>
       </form>}
       {!canPublish && error && <p role="alert">{error}</p>}
-      <section className="reports-list">{reports.map((report) => <article className="report-card" key={report.id}><small>{report.project} · {report.phase} · {new Date(report.submittedAt).toLocaleDateString()}</small><h2>{report.title}</h2><p>{report.body}</p><div className="report-actions"><button className="report-download" type="button" onClick={() => downloadReport(report)}>Download report</button>{report.submittedById === user?.id && <button className="report-delete" type="button" onClick={() => void deleteReport(report.id)} disabled={deletingReportId === report.id}>{deletingReportId === report.id ? 'Deleting...' : 'Delete report'}</button>}</div></article>)}{!reports.length && <div className="reports-empty">No reports yet.</div>}</section>
+      <section className="reports-list">{reports.map((report) => <article className="report-card" key={report.id}><small>{report.project} · {report.phase} · {new Date(report.submittedAt).toLocaleDateString()}</small><h2>{report.title}</h2><p>{report.body}</p><div className="report-actions"><button className="report-download" type="button" onClick={() => void downloadReport(report)}>Download PDF</button>{report.submittedById === user?.id && <button className="report-delete" type="button" onClick={() => void deleteReport(report.id)} disabled={deletingReportId === report.id}>{deletingReportId === report.id ? 'Deleting...' : 'Delete report'}</button>}</div></article>)}{!reports.length && <div className="reports-empty">No reports yet.</div>}</section>
     </div>
   );
 };

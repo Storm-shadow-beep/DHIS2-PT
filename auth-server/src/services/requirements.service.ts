@@ -43,6 +43,8 @@ export interface RequirementResponse {
   name: string;
   isMandatory: boolean;
   sortOrder: number;
+  /** Nullable YYYY-MM-DD deadline; null means no due date set. */
+  dueDate: string | null;
   /** Documents linked to this requirement (0 until Module 5 uploads exist). */
   documentCount: number;
   createdAt: Date;
@@ -80,6 +82,7 @@ const toRequirementResponse = (
   name: row.name,
   isMandatory: row.isMandatory,
   sortOrder: row.sortOrder,
+  dueDate: row.dueDate,
   documentCount,
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,
@@ -184,18 +187,33 @@ export interface CreateRequirementInput {
   name: unknown;
   isMandatory?: unknown;
   sortOrder?: unknown;
+  dueDate?: unknown;
 }
 
 export interface UpdateRequirementInput {
   name?: unknown;
   isMandatory?: unknown;
   sortOrder?: unknown;
+  dueDate?: unknown;
 }
 
 const assertIsMandatory = (value: unknown): boolean | undefined => {
   if (value === undefined) return undefined;
   if (typeof value !== 'boolean') {
     throw requirementError('isMandatory must be a boolean', 400, 'VALIDATION_ERROR');
+  }
+  return value;
+};
+
+const assertDueDate = (value: unknown): string | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw requirementError('dueDate must use YYYY-MM-DD format or null', 400, 'VALIDATION_ERROR');
+  }
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+    throw requirementError('dueDate must be a valid date', 400, 'VALIDATION_ERROR');
   }
   return value;
 };
@@ -234,6 +252,7 @@ export const createRequirement = async (
   const name = validateRequirementName(input.name);
   const isMandatory = assertIsMandatory(input.isMandatory) ?? true;
   const sortOrder = validateSortOrder(input.sortOrder) ?? 0;
+  const dueDate = assertDueDate(input.dueDate) ?? null;
 
   await assertProjectExists(db, projectId);
   const [phase] = await db
@@ -250,7 +269,7 @@ export const createRequirement = async (
   try {
     [created] = await db
       .insert(documentCategories)
-      .values({ phaseId, name, isMandatory, sortOrder })
+      .values({ phaseId, name, isMandatory, sortOrder, dueDate })
       .returning();
   } catch (error) {
     // Concurrent duplicate (passes the app-level check, hits the DB
@@ -263,7 +282,7 @@ export const createRequirement = async (
     action: 'requirement.created',
     entityType: 'document_category',
     entityId: created.id,
-    metadata: { projectId, phaseId, name, isMandatory },
+    metadata: { projectId, phaseId, name, isMandatory, dueDate },
   });
   return toRequirementResponse(created, 0);
 };
@@ -281,7 +300,8 @@ export const updateRequirement = async (
   if (
     input.name === undefined &&
     input.isMandatory === undefined &&
-    input.sortOrder === undefined
+    input.sortOrder === undefined &&
+    input.dueDate === undefined
   ) {
     throw requirementError('At least one field is required', 400, 'VALIDATION_ERROR');
   }
@@ -316,6 +336,8 @@ export const updateRequirement = async (
   if (isMandatory !== undefined) updates.isMandatory = isMandatory;
   const sortOrder = validateSortOrder(input.sortOrder);
   if (sortOrder !== undefined) updates.sortOrder = sortOrder;
+  const dueDate = assertDueDate(input.dueDate);
+  if (dueDate !== undefined) updates.dueDate = dueDate;
 
   let updated;
   try {

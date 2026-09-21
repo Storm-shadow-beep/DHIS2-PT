@@ -380,6 +380,194 @@
   font-size: 12px;
 }
 
+.phase-requirements-toggle {
+  margin-top: 8px;
+}
+
+.requirements-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 16px;
+  overflow-y: auto;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.requirements-modal {
+  width: min(680px, 100%);
+  max-height: calc(100vh - 96px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.35);
+}
+
+.requirements-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.requirements-modal-header h2 {
+  margin: 4px 0;
+  color: var(--text-primary);
+  font-size: 20px;
+}
+
+.requirements-modal-subtitle {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.requirements-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+.requirements-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 760px) {
+  .requirements-modal-backdrop {
+    padding: 24px 12px;
+  }
+
+  .requirements-modal {
+    max-height: calc(100vh - 48px);
+  }
+}
+
+.phase-requirements-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+.phase-requirements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.phase-requirement-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.phase-requirement-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.phase-requirement-main strong {
+  font-size: 13px;
+}
+
+.phase-requirement-meta {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.phase-requirement-due {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.phase-requirement-due input[type='date'] {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.phase-requirement-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.phase-requirement-mandatory {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.phase-requirement-delete {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
+.phase-requirement-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.phase-requirement-create {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.phase-requirement-create input[type='text'],
+.phase-requirement-create input:not([type]),
+.phase-requirement-create input[placeholder] {
+  flex: 1 1 160px;
+}
+
+.phase-requirement-create input {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 12px;
+}
+
+.phase-requirement-add {
+  min-height: 34px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
 @media (max-width: 760px) {
   .manager-page {
     padding: 28px 16px;

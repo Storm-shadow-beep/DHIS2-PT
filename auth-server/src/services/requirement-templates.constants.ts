@@ -62,6 +62,7 @@ export interface CategorySeedRow {
   name: string;
   isMandatory: boolean;
   sortOrder: number;
+  dueDate: string | null;
 }
 
 export type RequirementError = Error & {
@@ -94,6 +95,7 @@ export const buildCategorySeedRows = (
         name: template.name,
         isMandatory: template.isMandatory,
         sortOrder: template.sortOrder,
+        dueDate: null,
       });
     }
   }

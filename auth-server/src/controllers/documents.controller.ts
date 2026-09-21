@@ -113,6 +113,17 @@ export const reviewDocument = asyncHandler(async (req: Request, res: Response) =
   res.json({ message: 'Document review recorded', document, approval });
 });
 
+export const updateDocument = asyncHandler(async (req: Request, res: Response) => {
+  const body = bodyAsRecord(req.body);
+  const { document } = await documentsService.updateDocument(
+    paramAsString(req.params.projectId),
+    paramAsString(req.params.documentId),
+    { name: body.name, phaseId: body.phaseId, documentCategoryId: body.documentCategoryId },
+    req.user!.sub,
+  );
+  res.json({ message: 'Document updated', document });
+});
+
 export const deleteDocument = asyncHandler(async (req: Request, res: Response) => {
   const { trashed } = await documentsService.deleteDocument(
     paramAsString(req.params.projectId),

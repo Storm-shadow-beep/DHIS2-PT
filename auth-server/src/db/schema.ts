@@ -212,6 +212,7 @@ export const documentRequirementTemplates = pgTable(
     name: varchar('name', { length: 150 }).notNull(),
     isMandatory: boolean('is_mandatory').notNull().default(true),
     sortOrder: integer('sort_order').notNull().default(0),
+    dueDate: date('due_date'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -230,6 +231,7 @@ export const documentCategories = pgTable(
     name: varchar('name', { length: 150 }).notNull(),
     isMandatory: boolean('is_mandatory').notNull().default(true),
     sortOrder: integer('sort_order').notNull().default(0),
+    dueDate: date('due_date'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
