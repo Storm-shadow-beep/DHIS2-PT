@@ -21,7 +21,7 @@ const errorMessage = (error: unknown): string => {
   if (error instanceof AuthApiError && (error.status === 409 || error.status === 429)) {
     return error.message || 'This setting can only be changed once every three months.';
   }
-  return error instanceof Error ? error.message : 'Unable to save your changes. Please try again.';
+  return error instanceof Error ? error.message : 'Unable to save changes. Please try again.';
 };
 
 const ThemeCard: React.FC = () => {
