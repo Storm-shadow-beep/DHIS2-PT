@@ -380,6 +380,26 @@
   font-size: 12px;
 }
 
+.phase-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.phase-action-button:disabled {
+  cursor: wait;
+  opacity: .7;
+}
+
+.phase-action-spinner {
+  width: 11px;
+  height: 11px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: manager-spin .7s linear infinite;
+}
+
 .phase-requirements-toggle {
   margin-top: 8px;
 }

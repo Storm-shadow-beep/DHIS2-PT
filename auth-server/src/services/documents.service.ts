@@ -203,7 +203,10 @@ export const createDocument = async (
   assertDocumentUuid(input.phaseId, 'phase id');
 
   await assertProjectExists(db, projectId);
-  await loadPhaseForProject(projectId, input.phaseId);
+  const phase = await loadPhaseForProject(projectId, input.phaseId);
+  if (phase.status === 'completed') {
+    throw documentError('Documents cannot be submitted to a completed phase.', 409, 'PHASE_COMPLETED');
+  }
 
   let documentCategoryId: string | null = null;
   if (input.documentCategoryId !== undefined && input.documentCategoryId !== null && input.documentCategoryId !== '') {
@@ -321,6 +324,10 @@ export const createVersion = async (
   assertDocumentUuid(actorId, 'actor id');
   await assertProjectExists(db, projectId);
   const existing = await loadDocumentForProject(projectId, documentId);
+  const existingPhase = await loadPhaseForProject(projectId, existing.phaseId);
+  if (existingPhase.status === 'completed') {
+    throw documentError('Documents cannot be submitted to a completed phase.', 409, 'PHASE_COMPLETED');
+  }
   const nextVersion = resolveNewVersion(existing);
   const notes = validateVersionNotes(input.notes);
 
@@ -474,6 +481,10 @@ export const updateDocument = async (
   assertDocumentUuid(actorId, 'actor id');
   await assertProjectExists(db, projectId);
   const existing = await loadDocumentForProject(projectId, documentId);
+  const existingPhase = await loadPhaseForProject(projectId, existing.phaseId);
+  if (existingPhase.status === 'completed') {
+    throw documentError('Documents in a completed phase are view-only.', 409, 'PHASE_COMPLETED');
+  }
 
   if (
     input.name === undefined &&
@@ -497,7 +508,10 @@ export const updateDocument = async (
       throw documentError('phaseId must be a UUID', 400, 'VALIDATION_ERROR');
     }
     assertDocumentUuid(input.phaseId, 'phase id');
-    await loadPhaseForProject(projectId, input.phaseId);
+    const targetPhase = await loadPhaseForProject(projectId, input.phaseId);
+    if (targetPhase.status === 'completed') {
+      throw documentError('Documents cannot be moved into a completed phase.', 409, 'PHASE_COMPLETED');
+    }
     updates.phaseId = input.phaseId;
   }
   const targetPhaseId = (updates.phaseId as string | undefined) ?? existing.phaseId;
@@ -557,6 +571,10 @@ export const deleteDocument = async (
   assertDocumentUuid(actorId, 'actor id');
   await assertProjectExists(db, projectId);
   const existing = await loadDocumentForProject(projectId, documentId);
+  const phase = await loadPhaseForProject(projectId, existing.phaseId);
+  if (phase.status === 'completed') {
+    throw documentError('Documents in a completed phase are view-only.', 409, 'PHASE_COMPLETED');
+  }
 
   // Document versions and approvals cascade from the documents row.
   await db.delete(documents).where(eq(documents.id, documentId));
