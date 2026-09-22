@@ -14,6 +14,8 @@ import { AdminPage } from './assets/components/Admin/AdminPage';
 import SettingsPage, { SettingsDetailPage } from './assets/components/Settings/SettingsPage';
 import { PermissionRoute, ProtectedRoute } from './assets/components/auth/RouteGuards';
 import { PERMISSION_NAMES } from './assets/components/services/authApi';
+import { useAuth } from './assets/components/auth/AuthContext';
+import { applyTheme, getStoredTheme } from './assets/services/theme';
 
 const routeTitles: Record<string, string> = {
   '/': 'PMS: Login',
@@ -45,18 +47,18 @@ const PageTitleUpdater: React.FC = () => {
 };
 
 const ThemeBootstrap: React.FC = () => {
+  const { user } = useAuth();
+
   useEffect(() => {
-    const preference = localStorage.getItem('pms-theme') ?? 'system';
+    const preference = getStoredTheme(user?.id);
     const apply = () => {
-      const dark = preference === 'dark'
-        || (preference === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      applyTheme(preference);
     };
     apply();
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     media.addEventListener?.('change', apply);
     return () => media.removeEventListener?.('change', apply);
-  }, []);
+  }, [user?.id]);
   return null;
 };
 
