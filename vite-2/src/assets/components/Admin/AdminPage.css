@@ -399,3 +399,99 @@
     overflow-x: auto;
   }
 }
+
+:root[data-theme='dark'] .admin-page {
+  background: var(--page-background);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .admin-header p:not(.admin-kicker),
+:root[data-theme='dark'] .admin-table-heading p,
+:root[data-theme='dark'] .admin-user-cell span,
+:root[data-theme='dark'] .admin-last-login,
+:root[data-theme='dark'] .admin-muted,
+:root[data-theme='dark'] .admin-empty-state {
+  color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .admin-refresh-button,
+:root[data-theme='dark'] .admin-action-button {
+  border-color: var(--border-strong);
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .admin-refresh-button:hover,
+:root[data-theme='dark'] .admin-action-button:hover,
+:root[data-theme='dark'] .admin-role-menu button:hover {
+  background: var(--surface-hover);
+}
+
+:root[data-theme='dark'] .admin-tabs {
+  background: var(--surface);
+}
+
+:root[data-theme='dark'] .admin-tab {
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .admin-tab.active,
+:root[data-theme='dark'] .admin-action-primary {
+  background: var(--button-dark);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .admin-search input {
+  border-color: var(--border-strong);
+  background: var(--input);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .admin-search input::placeholder {
+  color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .admin-table-card,
+:root[data-theme='dark'] .admin-role-menu {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+:root[data-theme='dark'] .admin-table-heading,
+:root[data-theme='dark'] .admin-table th {
+  border-color: var(--border);
+}
+
+:root[data-theme='dark'] .admin-table th {
+  background: var(--surface-subtle);
+  color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .admin-table td {
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .admin-user-cell strong,
+:root[data-theme='dark'] .admin-empty-state h1,
+:root[data-theme='dark'] .admin-empty-state h3 {
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .admin-avatar {
+  background: var(--surface-hover);
+  color: var(--text-primary) !important;
+}
+
+:root[data-theme='dark'] .admin-role-chip {
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .admin-role-menu {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .3);
+}
+
+:root[data-theme='dark'] .admin-role-menu button {
+  color: var(--text-secondary);
+}

@@ -11,13 +11,11 @@ import {
 } from '../services/authApi';
 import type { OtpChallenge } from '../services/authApi';
 import { getRoleDisplayName } from '../auth/authorization';
+import { applyTheme, getStoredTheme, storeTheme, type ThemePreference } from '../../services/theme';
 import './SettingsPage.css';
 import { PageLoading } from '../PageLoading/PageLoading';
 
-type ThemePreference = 'light' | 'dark' | 'system';
 type SettingsAction = 'password' | 'name' | 'picture';
-
-const themeKey = 'pms-theme';
 
 const errorMessage = (error: unknown): string => {
   if (error instanceof AuthApiError && (error.status === 409 || error.status === 429)) {
@@ -26,25 +24,25 @@ const errorMessage = (error: unknown): string => {
   return error instanceof Error ? error.message : 'Unable to save your changes. Please try again.';
 };
 
-const applyThemePreference = (theme: ThemePreference): void => {
-  const dark = theme === 'dark'
-    || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
-};
-
 const ThemeCard: React.FC = () => {
+  const { user } = useAuth();
   const [theme, setTheme] = useState<ThemePreference>(
-    () => (localStorage.getItem(themeKey) as ThemePreference) || 'system',
+    () => getStoredTheme(user?.id),
   );
 
   useEffect(() => {
-    localStorage.setItem(themeKey, theme);
-    applyThemePreference(theme);
+    if (!user) return undefined;
+    storeTheme(user.id, theme);
+    applyTheme(theme);
     const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const update = () => applyThemePreference(theme);
+    const update = () => applyTheme(theme);
     media.addEventListener?.('change', update);
     return () => media.removeEventListener?.('change', update);
-  }, [theme]);
+  }, [theme, user]);
+
+  useEffect(() => {
+    setTheme(getStoredTheme(user?.id));
+  }, [user?.id]);
 
   return (
     <section className="settings-card settings-theme-card">
