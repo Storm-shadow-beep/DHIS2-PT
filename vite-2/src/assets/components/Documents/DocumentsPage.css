@@ -488,6 +488,16 @@
   color: #334155;
 }
 
+.documents-read-only-notice {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--text-secondary);
+  background: var(--surface-subtle);
+  font-size: 13px;
+}
+
 .documents-empty-copy {
   display: flex;
   min-height: 150px;

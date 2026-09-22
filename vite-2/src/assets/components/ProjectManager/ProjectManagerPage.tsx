@@ -69,6 +69,8 @@ export const ProjectManagerPage: React.FC = () => {
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingPhases, setIsLoadingPhases] = useState(false);
+  const [updatingPhaseId, setUpdatingPhaseId] = useState<string | null>(null);
   const [modalPhaseId, setModalPhaseId] = useState<string | null>(null);
   const [requirementDrafts, setRequirementDrafts] = useState<Record<string, RequirementDraft>>({});
   const [creatingForPhase, setCreatingForPhase] = useState<string | null>(null);
@@ -126,6 +128,7 @@ export const ProjectManagerPage: React.FC = () => {
       setModalPhaseId(null);
       return;
     }
+    setIsLoadingPhases(true);
     Promise.all([getProjectPhasesApi(selected.id), getProjectRequirementsApi(selected.id)])
       .then(([{ phases: phaseRows }, { phases: requirementGroups }]) => setPhases(phaseRows.map((phase) => {
         const group = requirementGroups.find((entry) => entry.phase.id === phase.id);
@@ -137,7 +140,8 @@ export const ProjectManagerPage: React.FC = () => {
           requirements: [...(group?.requirements ?? [])].sort((a, b) => a.sortOrder - b.sortOrder),
         };
       })))
-      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Could not load phases.'));
+      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : 'Could not load phases.'))
+      .finally(() => setIsLoadingPhases(false));
   }, [selected]);
 
   const saveProject = async (event: React.FormEvent) => {
@@ -167,7 +171,10 @@ export const ProjectManagerPage: React.FC = () => {
   };
 
   const updatePhase = async (phase: Phase) => {
+    if (updatingPhaseId) return;
     const action = phase.status === 'current' ? 'complete' : 'reopen';
+    setUpdatingPhaseId(phase.id);
+    setError('');
     try {
       const result = await updateProjectPhaseApi(selectedId, phase.id, action);
       setPhases(result.phases.map((item) => {
@@ -183,6 +190,8 @@ export const ProjectManagerPage: React.FC = () => {
       setMessage(action === 'complete' ? 'Phase completed.' : 'Phase reopened.');
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not update phase.');
+    } finally {
+      setUpdatingPhaseId(null);
     }
   };
 
@@ -326,13 +335,19 @@ export const ProjectManagerPage: React.FC = () => {
         {isLoading ? <PageLoading message="Loading projects and workspace details..." /> : selected && <><div className="manager-panel-title"><div><p className="manager-section-kicker">Project overview</p><h2>{selected.name}</h2><p>{selected.subtitle || 'No description added yet.'}</p></div>{isAdministrator && <button className="manager-secondary" onClick={() => { setEditingId(selected.id); setForm({ name: selected.name, description: selected.subtitle, projectManagerId: selected.projectManagerId ?? '', memberIds: selected.memberIds }); setShowForm(true); }}>Edit details</button>}</div>
           <div className="manager-summary-grid"><div><span>Project manager</span><strong>{users.find((entry) => String(entry.id) === selected.projectManagerId)?.fullName ?? 'Not assigned'}</strong></div><div><span>Team members</span><strong>{selected.memberIds.length}</strong></div><div><span>Requirements</span><strong>{phases.reduce((total, phase) => total + phase.requiredDocuments, 0)}</strong></div><div><span>Progress</span><strong>{phases.filter((phase) => phase.status === 'completed').length} / {phases.length || 0} phases</strong></div></div>
           <div className="phase-heading"><div><h3>Project phases</h3><p>Track progress, manage requirements and deadlines, and move the project forward.</p></div></div>
-          <div className="phase-config">{phases.map((phase, index) => (
+          {isLoadingPhases ? <PageLoading message="Loading project phases and requirements..." /> : <div className="phase-config">{phases.map((phase, index) => (
             <div className={`phase-card ${phase.status}`} key={phase.id}>
               <div className="phase-card-top"><span className="phase-number">0{index + 1}</span><span className={`phase-status ${phase.status}`}>{phase.status === 'not_started' ? 'Not started' : phase.status}</span></div>
               <strong>{phase.name}</strong>
               <span className="phase-requirements">{phase.requiredDocuments} requirements</span>
-              {phase.status === 'current' && <button className="manager-secondary" type="button" onClick={() => void updatePhase(phase)}>Complete phase</button>}
-              {phase.status === 'completed' && <button className="manager-secondary" type="button" onClick={() => void updatePhase(phase)}>Reopen phase</button>}
+              {phase.status === 'current' && <button className="manager-secondary phase-action-button" type="button" disabled={updatingPhaseId !== null} aria-busy={updatingPhaseId === phase.id} onClick={() => void updatePhase(phase)}>
+                {updatingPhaseId === phase.id && <span className="phase-action-spinner" aria-hidden="true" />}
+                {updatingPhaseId === phase.id ? 'Completing phase...' : 'Complete phase'}
+              </button>}
+              {phase.status === 'completed' && <button className="manager-secondary phase-action-button" type="button" disabled={updatingPhaseId !== null} aria-busy={updatingPhaseId === phase.id} onClick={() => void updatePhase(phase)}>
+                {updatingPhaseId === phase.id && <span className="phase-action-spinner" aria-hidden="true" />}
+                {updatingPhaseId === phase.id ? 'Reopening phase...' : 'Reopen phase'}
+              </button>}
               <button
                 className="manager-secondary phase-requirements-toggle"
                 type="button"
@@ -341,7 +356,7 @@ export const ProjectManagerPage: React.FC = () => {
                 Manage requirements
               </button>
             </div>
-          ))}</div>
+          ))}</div>}
           {modalPhase && (() => {
             const draft = draftFor(modalPhase.id);
             const submittedCount = modalPhase.requirements.filter((item) => item.documentCount > 0).length;
