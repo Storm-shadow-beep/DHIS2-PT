@@ -91,11 +91,6 @@ export const getDriveClient = async (): Promise<drive_v3.Drive> => {
   }
 };
 
-/** Test-only reset so unit tests can re-init with different env. */
-export const resetDriveClientCache = (): void => {
-  cachedDrive = null;
-};
-
 export type DriveError = Error & { statusCode: number; code: string; retryAfterSeconds?: number };
 
 export const driveError = (

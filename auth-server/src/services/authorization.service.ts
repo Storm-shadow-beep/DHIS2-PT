@@ -156,11 +156,6 @@ export const assertProjectManager = async (
   projectId: string,
 ): Promise<void> => assertProjectAccess(userId, projectId, 'manage');
 
-export const assertProjectMember = async (
-  userId: string,
-  projectId: string,
-): Promise<void> => assertProjectAccess(userId, projectId, 'member');
-
 export const assertDocumentAccess = async (
   userId: string,
   documentId: string,

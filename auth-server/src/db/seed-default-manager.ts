@@ -95,8 +95,6 @@ export async function seedDefaultProjectManager(): Promise<void> {
       });
     }
   });
-
-  // console.log(`[auth-service] ensured default project manager: ${email}`);
 }
 
 const DEFAULT_ADMIN_EMAIL = 'admin@example.org';
@@ -179,6 +177,4 @@ export async function seedDefaultAdmin(): Promise<void> {
       });
     }
   });
-
-  // console.log(`[auth-service] ensured default administrator: ${email}`);
 }

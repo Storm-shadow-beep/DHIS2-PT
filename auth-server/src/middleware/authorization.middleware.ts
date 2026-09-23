@@ -3,7 +3,6 @@ import {
   assertDocumentAccess,
   assertProjectAccess,
   assertProjectManager,
-  assertProjectMember,
   getAuthorizationContext,
   normalizeResourceId,
 } from '../services/authorization.service';
@@ -107,9 +106,6 @@ export const requireAdministrator: RequestHandler = async (
     next(error);
   }
 };
-
-export const requireProjectMember = (parameter = 'projectId'): RequestHandler =>
-  requireProjectAccess('member', parameter);
 
 export const requireNonAdministrator: RequestHandler = async (
   req: Request,

@@ -20,11 +20,6 @@ export const DOCUMENT_STATUSES: readonly DocumentStatus[] = [
 
 export type DocumentDecision = 'approved' | 'needs_revision';
 
-export const DOCUMENT_DECISIONS: readonly DocumentDecision[] = [
-  'approved',
-  'needs_revision',
-] as const;
-
 export type DocumentError = Error & {
   statusCode: number;
   code: string;
