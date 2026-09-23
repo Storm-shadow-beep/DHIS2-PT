@@ -1,8 +1,13 @@
 .documents-page {
   padding: clamp(24px, 4vw, 48px);
+  padding-bottom: clamp(56px, 8vw, 96px);
   background: #f6f8fb;
   min-height: calc(100vh - 65px);
   box-sizing: border-box;
+}
+
+.documents-layout {
+  margin-bottom: 24px;
 }
 
 .documents-header {
@@ -423,6 +428,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .info-label {
@@ -436,7 +442,10 @@
 .info-block strong {
   color: #0f172a;
   font-size: 15px;
-  overflow-wrap: anywhere;
+  line-height: 1.4;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 .preview-notes {
@@ -701,7 +710,7 @@
 
 @media (max-width: 640px) {
   .documents-page {
-    padding: 20px 16px;
+    padding: 20px 16px 56px;
   }
 
   .documents-header {
@@ -737,4 +746,168 @@
   }
 
   .upload-form-grid { grid-template-columns: 1fr; }
+}
+
+/* ---- Documents dark mode: token-driven surfaces, desaturated accents ---- */
+:root[data-theme='dark'] .documents-preview {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .28);
+}
+
+:root[data-theme='dark'] .preview-toolbar {
+  background: linear-gradient(180deg, #1b2942, #16223a);
+  border-bottom-color: var(--border);
+}
+
+:root[data-theme='dark'] .preview-body {
+  background: var(--surface);
+}
+
+:root[data-theme='dark'] .preview-kicker {
+  color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .preview-body h2 {
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .info-block {
+  background: var(--surface-subtle);
+  border-color: var(--border);
+}
+
+:root[data-theme='dark'] .info-label {
+  color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .info-block strong {
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .preview-notes {
+  border-top-color: var(--border);
+}
+
+:root[data-theme='dark'] .preview-notes h3 {
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .preview-notes p {
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .phase-badge {
+  background: rgba(125, 211, 252, .14);
+  color: #7dd3fc;
+  border: 1px solid rgba(125, 211, 252, .28);
+}
+
+:root[data-theme='dark'] .document-count {
+  background: rgba(125, 211, 252, .14);
+  color: #7dd3fc;
+}
+
+:root[data-theme='dark'] .status-badge.uploaded {
+  background: rgba(96, 165, 250, .16);
+  color: #93c5fd;
+  border: 1px solid rgba(96, 165, 250, .32);
+}
+
+:root[data-theme='dark'] .status-badge.approved {
+  background: rgba(34, 197, 94, .14);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, .3);
+}
+
+:root[data-theme='dark'] .status-badge.needs-revision {
+  background: rgba(251, 191, 36, .13);
+  color: #fcd34d;
+  border: 1px solid rgba(251, 191, 36, .3);
+}
+
+:root[data-theme='dark'] .documents-preview .download-button {
+  background: var(--button-dark);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .documents-preview .download-button:hover {
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .35);
+}
+
+:root[data-theme='dark'] .documents-edit-button {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .documents-edit-button:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .documents-return {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .delete-button {
+  background: rgba(248, 113, 113, .12);
+  border-color: rgba(248, 113, 113, .35);
+  color: #fca5a5;
+}
+
+:root[data-theme='dark'] .submit-document-panel {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .28);
+}
+
+:root[data-theme='dark'] .submit-document-header h3 {
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .current-user-tag {
+  background: rgba(34, 197, 94, .14);
+  color: #4ade80;
+}
+
+:root[data-theme='dark'] .upload-field {
+  color: var(--text-secondary);
+}
+
+:root[data-theme='dark'] .upload-field input,
+:root[data-theme='dark'] .upload-field select {
+  background: var(--input);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .upload-actions-bar {
+  border-top-color: var(--border);
+}
+
+:root[data-theme='dark'] .upload-helper-text {
+  color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .upload-cancel-button {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .document-confirm-modal {
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .5);
+}
+
+:root[data-theme='dark'] .document-confirm-modal h2 {
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .document-confirm-modal > p:not(.documents-kicker) {
+  color: var(--text-secondary);
 }

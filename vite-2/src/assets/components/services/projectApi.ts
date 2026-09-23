@@ -61,8 +61,6 @@ const request = async <T>(url: string, options?: RequestInit): Promise<T> => {
 
 export const getProjectsApi = () => request<{ projects: ApiProject[] }>('/api/projects');
 export const getUsersApi = () => request<{ users: { id: string | number; fullName: string; email: string; role: string }[] }>('/api/users');
-export const getProjectApi = (id: string | number) => request<{ project: ApiProject }>(`/api/projects/${id}`);
-export const getProjectMembersApi = (id: string | number) => request<{ members: unknown[] }>(`/api/projects/${id}/members`);
 export const getProjectPhasesApi = (id: string | number) => request<{ phases: ApiPhase[] }>(`/api/projects/${id}/phases`);
 export interface ApiDocument {
   id: string;
@@ -120,10 +118,6 @@ export const downloadProjectDriveFileApi = async (projectId: string | number, fi
   anchor.click();
   URL.revokeObjectURL(blobUrl);
 };
-export const getCurrentProjectPhaseApi = (id: string | number) => request<{ phase: ApiPhase | null }>(`/api/projects/${id}/phases/current`);
-export const ensureProjectPhasesApi = (id: string | number) => request<{ phases: ApiPhase[]; generated: boolean }>(`/api/projects/${id}/phases/ensure`, {
-  method: 'POST',
-});
 export const updateProjectPhaseApi = (projectId: string | number, phaseId: string, action: 'complete' | 'reopen') => request<{ message: string; phases: ApiPhase[] }>(`/api/projects/${projectId}/phases/${phaseId}`, {
   method: 'PATCH',
   headers: { 'Content-Type': 'application/json' },
@@ -175,9 +169,6 @@ export interface ApiRequirementsGroup {
 
 export const getProjectRequirementsApi = (id: string | number) => request<{ phases: ApiRequirementsGroup[] }>(`/api/projects/${id}/requirements`);
 export const getPhaseRequirementsApi = (projectId: string | number, phaseId: string) => request<{ phase: ApiRequirementsGroup['phase']; requirements: ApiRequirement[] }>(`/api/projects/${projectId}/phases/${phaseId}/requirements`);
-export const ensureProjectRequirementsApi = (id: string | number) => request<{ phases: ApiRequirementsGroup[]; generated: boolean }>(`/api/projects/${id}/requirements/ensure`, {
-  method: 'POST',
-});
 export const createRequirementApi = (projectId: string | number, phaseId: string, input: { name: string; isMandatory?: boolean; sortOrder?: number; dueDate?: string | null }) => request<{ requirement: ApiRequirement }>(`/api/projects/${projectId}/phases/${phaseId}/requirements`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },

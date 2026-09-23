@@ -1,6 +1,7 @@
 /* src/assets/components/Projects/ProjectsPage.css */
 .projects-container {
   padding: 32px;
+  padding-bottom: clamp(56px, 8vw, 96px);
   background-color: #f8fafc;
   min-height: calc(100vh - 65px);
   box-sizing: border-box;
@@ -596,7 +597,7 @@
 
 @media (max-width: 640px) {
   .projects-container {
-    padding: 20px 16px;
+    padding: 20px 16px 56px;
   }
 
   .project-metrics-grid {
